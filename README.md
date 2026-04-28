@@ -181,68 +181,34 @@ if (!$result->isSuccess()) {
 
 В модуле есть готовые правила:
 
+- `Sholokhov\Featureflag\Rules\IsAdminRule` — доступ только для администраторов Bitrix
 - `Sholokhov\Featureflag\Rules\UserIdRule` — доступ по списку ID пользователей
 - `Sholokhov\Featureflag\Rules\UserGroupRule` — доступ по списку ID групп
 
-Оба правила принимают конфигурацию через конструктор:
+Правила конфигурируются через конструктор:
 
-- первый аргумент — массив разрешённых ID
-- второй аргумент — необязательный массив кодов фич `supportedCodes`
+- `IsAdminRule` принимает необязательный массив кодов фич `supportedCodes`
+- `UserIdRule` принимает массив разрешённых ID пользователей и необязательный `supportedCodes`
+- `UserGroupRule` принимает массив разрешённых ID групп и необязательный `supportedCodes`
 
 Если `supportedCodes` пустой, правило применяется ко всем флагам.
-Переданные ID нормализуются в конструкторе: приводятся к `int`, очищаются от дубликатов и неположительных значений.
-
-Пример правила, которое включает флаг только для администраторов:
-
-```php
-<?php
-
-namespace App\FeatureFlag;
-
-use Sholokhov\Featureflag\RuleInterface;
-
-final class AdminOnlyRule implements RuleInterface
-{
-    public function isSupported(string $code): bool
-    {
-        return $code === 'crm.application.v2';
-    }
-
-    public function isEnabled(string $code): bool
-    {
-        global $USER;
-
-        return is_object($USER) && (int)$USER->GetID() === 1;
-    }
-}
-```
-
-Регистрация правила:
-
-```php
-use Bitrix\Main\Loader;
-use Sholokhov\Featureflag\ServiceProvider;
-
-Loader::includeModule('sholokhov.featureflag');
-
-ServiceProvider::getRuleRegistry()->register(
-    new \App\FeatureFlag\AdminOnlyRule()
-);
-```
-
-Практически это имеет смысл делать в `init.php` проекта или в bootstrap вашего прикладного модуля.
+Переданные ID в `UserIdRule` и `UserGroupRule` нормализуются в конструкторе: приводятся к `int`, очищаются от дубликатов и неположительных значений.
 
 Примеры использования встроенных правил:
 
 ```php
 use Bitrix\Main\Loader;
 use Sholokhov\Featureflag\ServiceProvider;
+use Sholokhov\Featureflag\Rules\IsAdminRule;
 use Sholokhov\Featureflag\Rules\UserGroupRule;
 use Sholokhov\Featureflag\Rules\UserIdRule;
 
 Loader::includeModule('sholokhov.featureflag');
 
 ServiceProvider::getRuleRegistry()
+    ->register(new IsAdminRule(
+        supportedCodes: ['admin.dashboard.v2'],
+    ))
     ->register(new UserIdRule(
         userIds: [1, 15, 42],
         supportedCodes: ['crm.application.v2'],
@@ -260,6 +226,8 @@ ServiceProvider::getRuleRegistry()->register(
     new UserGroupRule(groupIds: [1])
 );
 ```
+
+Практически регистрацию правил имеет смысл делать в `init.php` проекта или в bootstrap вашего прикладного модуля.
 
 ## Изменение состояния флага
 
@@ -279,8 +247,6 @@ Feature::unRegister('crm.application.v2');
 ```
 
 Из публичного API сейчас доступны включение, отключение и удаление. Изменение `NAME` и `DESCRIPTION` по-прежнему нужно делать через ORM.
-
-Аналогично можно менять `NAME` и `DESCRIPTION`.
 
 ## Структура хранения
 
