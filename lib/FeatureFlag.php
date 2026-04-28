@@ -2,7 +2,7 @@
 
 namespace Sholokhov\Featureflag;
 
-use Sholokhov\Featureflag\ORM\FlagTable;
+use Sholokhov\Featureflag\ORM\FeatureTable;
 
 use Bitrix\Main\Result;
 use Bitrix\Main\SystemException;
@@ -53,7 +53,7 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function isEnabled(): bool
     {
-        if (!$this->entity->get(FlagTable::FIELD_ENABLED)) {
+        if (!$this->entity->get(FeatureTable::FIELD_ENABLED)) {
             return false;
         }
 
@@ -78,7 +78,7 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function getCode(): string
     {
-        return (string)$this->entity->get(FlagTable::FIELD_CODE);
+        return (string)$this->entity->get(FeatureTable::FIELD_CODE);
     }
 
     /**
@@ -91,7 +91,7 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function getName(): string
     {
-        return (string)$this->entity->get(FlagTable::FIELD_NAME);
+        return (string)$this->entity->get(FeatureTable::FIELD_NAME);
     }
 
     /**
@@ -104,7 +104,7 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function getDescription(): string
     {
-        return (string)$this->entity->get(FlagTable::FIELD_DESCRIPTION);
+        return (string)$this->entity->get(FeatureTable::FIELD_DESCRIPTION);
     }
 
     /**
@@ -119,7 +119,7 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function disabled(): Result
     {
-        $this->entity->set(FlagTable::FIELD_ENABLED, false);
+        $this->entity->set(FeatureTable::FIELD_ENABLED, false);
         return $this->entity->save();
     }
 
@@ -135,7 +135,20 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function enabled(): Result
     {
-        $this->entity->set(FlagTable::FIELD_ENABLED, true);
+        $this->entity->set(FeatureTable::FIELD_ENABLED, true);
         return $this->entity->save();
+    }
+
+    /**
+     * Удаление фичи флага
+     *
+     * @return Result
+     * @throws ArgumentException
+     * @throws SystemException
+     */
+    public function delete(): Result
+    {
+        $this->entity->set(FeatureTable::FIELD_ENABLED, false);
+        return $this->entity->delete();
     }
 }

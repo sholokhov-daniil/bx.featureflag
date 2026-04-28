@@ -2,12 +2,11 @@
 
 namespace Sholokhov\Featureflag\ORM;
 
-use Bitrix\Main\Diag\Debug;
-use Bitrix\Main\ORM\Data\DataManager;
 use Bitrix\Main\ORM\Event;
 use Bitrix\Main\ORM\EventResult;
 use Bitrix\Main\ORM\Fields;
 use Bitrix\Main\Type\DateTime;
+use Bitrix\Main\ORM\Data\DataManager;
 
 /**
  * ORM таблица фича-флагов
@@ -24,7 +23,7 @@ use Bitrix\Main\Type\DateTime;
  *
  * @package Sholokhov\Featureflag\ORM
  */
-class FlagTable extends DataManager
+class FeatureTable extends DataManager
 {
     /** Символьный код фичи (primary key) */
     public const string FIELD_CODE = 'CODE';

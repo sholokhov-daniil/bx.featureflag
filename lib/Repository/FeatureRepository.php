@@ -5,12 +5,15 @@ namespace Sholokhov\Featureflag\Repository;
 use Exception;
 use Throwable;
 
-use Sholokhov\Featureflag\FeatureInterface;
-use Sholokhov\Featureflag\ServiceProvider;
-
-use Bitrix\Main\ORM\Data\AddResult;
 use Sholokhov\Featureflag\DTO\FlagInfo;
-use Sholokhov\Featureflag\ORM\FlagTable;
+use Sholokhov\Featureflag\ServiceProvider;
+use Sholokhov\Featureflag\FeatureInterface;
+use Sholokhov\Featureflag\ORM\FeatureTable;
+
+use Bitrix\Main\EventManager;
+use Bitrix\Main\ORM\Event;
+use Bitrix\Main\ORM\Objectify\EntityObject;
+use Bitrix\Main\ORM\Data\AddResult;
 
 /**
  * Репозиторий фича-флагов
@@ -19,10 +22,10 @@ use Sholokhov\Featureflag\ORM\FlagTable;
  * Для чтения использует внутренний runtime-кеш, чтобы не выполнять запрос
  * к базе данных при каждой проверке активности фичи.
  *
- * При первом обращении загружает все флаги из ORM-таблицы {@see FlagTable}
+ * При первом обращении загружает все флаги из ORM-таблицы {@see FeatureTable}
  * и преобразует их в доменные объекты {@see FeatureInterface}.
  */
-class FlagRepository implements FlagRepositoryInterface
+class FeatureRepository implements FeatureRepositoryInterface
 {
     /**
      * Runtime-кеш загруженных флагов
@@ -39,6 +42,11 @@ class FlagRepository implements FlagRepositoryInterface
      * @var bool
      */
     private bool $loaded = false;
+
+    public function __construct()
+    {
+        $this->registerEvents();
+    }
 
     /**
      * Возвращает фича-флаг по символьному коду
@@ -72,18 +80,28 @@ class FlagRepository implements FlagRepositoryInterface
      */
     public function create(FlagInfo $flag): AddResult
     {
-        return FlagTable::add([
-            FlagTable::FIELD_CODE => $flag->code,
-            FlagTable::FIELD_NAME => $flag->name,
-            FlagTable::FIELD_DESCRIPTION => $flag->description,
-            FlagTable::FIELD_ENABLED => $flag->enabled,
+        return FeatureTable::add([
+            FeatureTable::FIELD_CODE => $flag->code,
+            FeatureTable::FIELD_NAME => $flag->name,
+            FeatureTable::FIELD_DESCRIPTION => $flag->description,
+            FeatureTable::FIELD_ENABLED => $flag->enabled,
         ]);
+    }
+
+    /**
+     * Очистка кеша
+     *
+     * @return void
+     */
+    public function clearCache(): void
+    {
+        $this->load();
     }
 
     /**
      * Загружает все фича-флаги в runtime-кеш
      *
-     * Получает записи из ORM-таблицы {@see FlagTable}, создаёт доменные объекты
+     * Получает записи из ORM-таблицы {@see FeatureTable}, создаёт доменные объекты
      * через фабрику флагов и сохраняет их во внутренний кеш по символьному коду.
      *
      * Ошибки загрузки не пробрасываются наружу, а записываются в лог Bitrix.
@@ -95,9 +113,9 @@ class FlagRepository implements FlagRepositoryInterface
     {
         try {
             $this->cache = [];
-            $factory = ServiceProvider::getFlagFactory();
+            $factory = ServiceProvider::getFeatureFactory();
 
-            $iterator = FlagTable::query()
+            $iterator = FeatureTable::query()
                 ->setSelect(['*'])
                 ->setCacheTtl(3600000)
                 ->exec();
@@ -109,5 +127,24 @@ class FlagRepository implements FlagRepositoryInterface
         } catch (Throwable $exception) {
             AddMessage2Log('Ошибка загрузки флагов: ' . $exception->getMessage());
         }
+    }
+
+    /**
+     * Регистрация соыбтий обновления хранилища
+     *
+     * @return void
+     */
+    private function registerEvents(): void
+    {
+        EventManager::getInstance()->addEventHandler(
+            '',
+            '\Sholokhov\Featureflag\ORM\Feature::OnAfterDelete',
+            function(Event $event) {
+                /** @var EntityObject $entity */
+                $entity = $event->getParameter('object');
+                $this->cache[$entity->get(FeatureTable::FIELD_CODE)] = $entity;
+            }
+
+        );
     }
 }

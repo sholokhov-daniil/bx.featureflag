@@ -2,15 +2,16 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
-use Bitrix\Main\ORM\Data\AddResult;
 use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\FeatureInterface;
+
+use Bitrix\Main\ORM\Data\AddResult;
 
 /**
  * Хранилище зарегистрированных флагов в системе
  *
  */
-interface FlagRepositoryInterface
+interface FeatureRepositoryInterface
 {
     /**
      * Возвращает флаг на основе символьного кода
@@ -27,4 +28,10 @@ interface FlagRepositoryInterface
      * @return AddResult
      */
     public function create(FlagInfo $flag): AddResult;
+
+    /**
+     * Сброс текущего кеша
+     * @return void
+     */
+    public function clearCache(): void;
 }

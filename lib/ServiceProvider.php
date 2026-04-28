@@ -2,8 +2,8 @@
 
 namespace Sholokhov\Featureflag;
 
-use Sholokhov\Featureflag\Factory\FlagFactoryInterface;
-use Sholokhov\Featureflag\Repository\FlagRepositoryInterface;
+use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
+use Sholokhov\Featureflag\Repository\FeatureRepositoryInterface;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
 
 use Bitrix\Main\DI\ServiceLocator;
@@ -16,25 +16,25 @@ class ServiceProvider
     /**
      * Возвращает сборщик флагов
      *
-     * @return FlagFactoryInterface
+     * @return FeatureFactoryInterface
      * @throws NotFoundExceptionInterface
      * @throws ObjectNotFoundException
      */
-    public static function getFlagFactory(): FlagFactoryInterface
+    public static function getFeatureFactory(): FeatureFactoryInterface
     {
-        return ServiceLocator::getInstance()->get(FlagFactoryInterface::class);
+        return ServiceLocator::getInstance()->get(FeatureFactoryInterface::class);
     }
 
     /**
      * Хранилище зарегистрированных флагов
      *
-     * @return FlagRepositoryInterface
+     * @return FeatureRepositoryInterface
      * @throws NotFoundExceptionInterface
      * @throws ObjectNotFoundException
      */
-    public static function getFlagRepository(): FlagRepositoryInterface
+    public static function getFeatureRepository(): FeatureRepositoryInterface
     {
-        return ServiceLocator::getInstance()->get(FlagRepositoryInterface::class);
+        return ServiceLocator::getInstance()->get(FeatureRepositoryInterface::class);
     }
 
     /**

@@ -2,12 +2,13 @@
 
 namespace Sholokhov\Featureflag;
 
-use Bitrix\Main\Result;
 use Throwable;
 use RuntimeException;
 
 use Sholokhov\Featureflag\DTO\FlagInfo;
 
+use Bitrix\Main\Error;
+use Bitrix\Main\Result;
 use Bitrix\Main\ORM\Data\AddResult;
 use Bitrix\Main\ObjectNotFoundException;
 
@@ -21,8 +22,10 @@ use Psr\Container\NotFoundExceptionInterface;
  *
  * Все методы являются статическими и используются как точка входа
  * для взаимодействия с системой фича-флагов.
+ *
+ * @final
  */
-class Feature
+final class Feature
 {
     /**
      * Проверяет, активна ли фича
@@ -134,7 +137,58 @@ class Feature
      */
     public static function register(FlagInfo $flag): AddResult
     {
-        return ServiceProvider::getFlagRepository()->create($flag);
+        return ServiceProvider::getFeatureRepository()->create($flag);
+    }
+
+    /**
+     * Включение фичи
+     *
+     * @param string $code
+     * @return Result
+     */
+    public static  function enabled(string $code): Result
+    {
+        $features = self::getByCode($code);
+
+        if (!$features) {
+            return (new Result)->addError(new Error('Фича не найдена'));
+        }
+
+        return $features->enabled();
+    }
+
+    /**
+     * Отключение фичи
+     *
+     * @param string $code
+     * @return Result
+     */
+    public static function disabled(string $code): Result
+    {
+        $features = self::getByCode($code);
+
+        if (!$features) {
+            return (new Result)->addError(new Error('Фича не найдена'));
+        }
+
+        return $features->disabled();
+    }
+
+    /**
+     * Удаление фичи
+     *
+     * @param string $code
+     * @return Result
+     */
+    public static function unRegister(string $code): Result
+    {
+        $features = self::getByCode($code);
+
+        if (!$features) {
+            return new Result;
+        }
+
+        return $features->delete();
     }
 
     /**
@@ -149,7 +203,7 @@ class Feature
     public static function getByCode(string $code): ?FeatureInterface
     {
         try {
-            $flag = ServiceProvider::getFlagRepository()->findByCode($code);
+            $flag = ServiceProvider::getFeatureRepository()->findByCode($code);
         } catch (Throwable) {
             $flag = null;
             // TODO: логирование ошибки

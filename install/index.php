@@ -1,6 +1,6 @@
 <?php
 
-use Sholokhov\Featureflag\ORM\FlagTable;
+use Sholokhov\Featureflag\ORM\FeatureTable;
 
 use Bitrix\Main\EventManager;
 use Bitrix\Main\Localization\Loc;
@@ -69,13 +69,13 @@ class sholokhov_featureflag extends CModule
 
     public function InstallDB(): void
     {
-        FlagTable::getEntity()->createDbTable();
+        FeatureTable::getEntity()->createDbTable();
     }
 
     public function UnInstallDB(): void
     {
-        $table = FlagTable::getTableName();
-        $connection = FlagTable::getEntity()->getConnection();
+        $table = FeatureTable::getTableName();
+        $connection = FeatureTable::getEntity()->getConnection();
 
         if ($connection->isTableExists($table)) {
             $connection->dropTable($table);

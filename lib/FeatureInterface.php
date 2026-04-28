@@ -50,4 +50,11 @@ interface FeatureInterface
      * @return Result
      */
     public function enabled(): Result;
+
+    /**
+     * Удаление флага
+     *
+     * @return Result
+     */
+    public function delete(): Result;
 }

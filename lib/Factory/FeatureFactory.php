@@ -5,7 +5,7 @@ namespace Sholokhov\Featureflag\Factory;
 use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\FeatureFlag;
-use Sholokhov\Featureflag\ORM\FlagTable;
+use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\RuleInterface;
 use Sholokhov\Featureflag\ServiceProvider;
 
@@ -22,7 +22,7 @@ use Psr\Container\NotFoundExceptionInterface;
  * Преобразует ORM-сущность Bitrix (HL-блок / таблица) в доменный объект {@see FeatureInterface}.
  * Также обогащает флаг набором правил, зарегистрированных в системе.
  */
-class FlagFactory implements FlagFactoryInterface
+class FeatureFactory implements FeatureFactoryInterface
 {
     /**
      * Создаёт объект фича-флага на основе ORM-сущности
@@ -42,7 +42,7 @@ class FlagFactory implements FlagFactoryInterface
      */
     public function createFromEntity(EntityObject $entity): FeatureInterface
     {
-        $code = (string)$entity->get(FlagTable::FIELD_CODE);
+        $code = (string)$entity->get(FeatureTable::FIELD_CODE);
 
         return new FeatureFlag(
             entity: $entity,
