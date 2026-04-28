@@ -5,7 +5,7 @@ namespace Sholokhov\Featureflag\Repository;
 use Exception;
 use Throwable;
 
-use Sholokhov\Featureflag\FlagInterface;
+use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\ServiceProvider;
 
 use Bitrix\Main\ORM\Data\AddResult;
@@ -20,7 +20,7 @@ use Sholokhov\Featureflag\ORM\FlagTable;
  * к базе данных при каждой проверке активности фичи.
  *
  * При первом обращении загружает все флаги из ORM-таблицы {@see FlagTable}
- * и преобразует их в доменные объекты {@see FlagInterface}.
+ * и преобразует их в доменные объекты {@see FeatureInterface}.
  */
 class FlagRepository implements FlagRepositoryInterface
 {
@@ -29,7 +29,7 @@ class FlagRepository implements FlagRepositoryInterface
      *
      * Ключ массива — символьный код фичи.
      *
-     * @var array<string, FlagInterface>
+     * @var array<string, FeatureInterface>
      */
     private array $cache = [];
 
@@ -48,9 +48,9 @@ class FlagRepository implements FlagRepositoryInterface
      *
      * @param string $code Символьный код фичи
      *
-     * @return FlagInterface|null Объект флага или null, если флаг не найден
+     * @return FeatureInterface|null Объект флага или null, если флаг не найден
      */
-    public function findByCode(string $code): ?FlagInterface
+    public function findByCode(string $code): ?FeatureInterface
     {
         if (!$this->loaded) {
             $this->load();

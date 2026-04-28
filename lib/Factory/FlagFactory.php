@@ -2,8 +2,9 @@
 
 namespace Sholokhov\Featureflag\Factory;
 
-use Sholokhov\Featureflag\Flag;
-use Sholokhov\Featureflag\FlagInterface;
+use Sholokhov\Featureflag\Feature;
+use Sholokhov\Featureflag\FeatureInterface;
+use Sholokhov\Featureflag\FeatureFlag;
 use Sholokhov\Featureflag\ORM\FlagTable;
 use Sholokhov\Featureflag\RuleInterface;
 use Sholokhov\Featureflag\ServiceProvider;
@@ -18,7 +19,7 @@ use Psr\Container\NotFoundExceptionInterface;
 /**
  * Фабрика создания объектов фича-флагов
  *
- * Преобразует ORM-сущность Bitrix (HL-блок / таблица) в доменный объект {@see FlagInterface}.
+ * Преобразует ORM-сущность Bitrix (HL-блок / таблица) в доменный объект {@see FeatureInterface}.
  * Также обогащает флаг набором правил, зарегистрированных в системе.
  */
 class FlagFactory implements FlagFactoryInterface
@@ -26,12 +27,12 @@ class FlagFactory implements FlagFactoryInterface
     /**
      * Создаёт объект фича-флага на основе ORM-сущности
      *
-     * Извлекает данные из {@see EntityObject} и формирует доменную модель {@see Flag}.
+     * Извлекает данные из {@see EntityObject} и формирует доменную модель {@see Feature}.
      * Дополнительно подтягивает все зарегистрированные правила, применимые к фиче.
      *
      * @param EntityObject $entity ORM-сущность Bitrix
      *
-     * @return FlagInterface Экземпляр фича-флага
+     * @return FeatureInterface Экземпляр фича-флага
      *
      * @throws NotFoundExceptionInterface Если не удалось получить зависимости из контейнера
      * @throws ObjectNotFoundException    Если реестр правил не найден
@@ -39,15 +40,12 @@ class FlagFactory implements FlagFactoryInterface
      * @throws SystemException            При ошибках ORM/ядра Bitrix
      *
      */
-    public function createFromEntity(EntityObject $entity): FlagInterface
+    public function createFromEntity(EntityObject $entity): FeatureInterface
     {
         $code = (string)$entity->get(FlagTable::FIELD_CODE);
 
-        return new Flag(
-            code: $code,
-            name: (string)$entity->get(FlagTable::FIELD_NAME),
-            description: (string)$entity->get(FlagTable::FIELD_DESCRIPTION),
-            enabled: (string)$entity->get(FlagTable::FIELD_ENABLED),
+        return new FeatureFlag(
+            entity: $entity,
             rules: $this->getRules($code),
         );
     }

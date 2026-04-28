@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag;
 
+use Bitrix\Main\Result;
 use Throwable;
 use RuntimeException;
 
@@ -143,9 +144,9 @@ class Feature
      * возвращает null.
      *
      * @param string $code Символьный код фичи
-     * @return FlagInterface|null Объект флага или null, если не найден или произошла ошибка
+     * @return FeatureInterface|null Объект флага или null, если не найден или произошла ошибка
      */
-    public static function getByCode(string $code): ?FlagInterface
+    public static function getByCode(string $code): ?FeatureInterface
     {
         try {
             $flag = ServiceProvider::getFlagRepository()->findByCode($code);
