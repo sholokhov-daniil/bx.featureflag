@@ -179,6 +179,19 @@ if (!$result->isSuccess()) {
 
 Модуль поддерживает runtime-правила через интерфейс `Sholokhov\Featureflag\RuleInterface`.
 
+В модуле есть готовые правила:
+
+- `Sholokhov\Featureflag\Rules\UserIdRule` — доступ по списку ID пользователей
+- `Sholokhov\Featureflag\Rules\UserGroupRule` — доступ по списку ID групп
+
+Оба правила принимают конфигурацию через конструктор:
+
+- первый аргумент — массив разрешённых ID
+- второй аргумент — необязательный массив кодов фич `supportedCodes`
+
+Если `supportedCodes` пустой, правило применяется ко всем флагам.
+Переданные ID нормализуются в конструкторе: приводятся к `int`, очищаются от дубликатов и неположительных значений.
+
 Пример правила, которое включает флаг только для администраторов:
 
 ```php
@@ -219,9 +232,38 @@ ServiceProvider::getRuleRegistry()->register(
 
 Практически это имеет смысл делать в `init.php` проекта или в bootstrap вашего прикладного модуля.
 
+Примеры использования встроенных правил:
+
+```php
+use Bitrix\Main\Loader;
+use Sholokhov\Featureflag\ServiceProvider;
+use Sholokhov\Featureflag\Rules\UserGroupRule;
+use Sholokhov\Featureflag\Rules\UserIdRule;
+
+Loader::includeModule('sholokhov.featureflag');
+
+ServiceProvider::getRuleRegistry()
+    ->register(new UserIdRule(
+        userIds: [1, 15, 42],
+        supportedCodes: ['crm.application.v2'],
+    ))
+    ->register(new UserGroupRule(
+        groupIds: [1, 8],
+        supportedCodes: ['catalog.fast-filter'],
+    ));
+```
+
+Если `supportedCodes` не передавать, правило будет применяться ко всем флагам:
+
+```php
+ServiceProvider::getRuleRegistry()->register(
+    new UserGroupRule(groupIds: [1])
+);
+```
+
 ## Изменение состояния флага
 
-В текущей версии фасад умеет только создавать и читать флаги. Для изменения состояния используйте ORM напрямую:
+В текущей версии изменение состояния и удаление доступны через фасад `Feature`:
 
 ```php
 use Sholokhov\Featureflag\Feature;
@@ -235,6 +277,8 @@ Feature::disabled('crm.application.v2');
 // Удаление
 Feature::unRegister('crm.application.v2');
 ```
+
+Из публичного API сейчас доступны включение, отключение и удаление. Изменение `NAME` и `DESCRIPTION` по-прежнему нужно делать через ORM.
 
 Аналогично можно менять `NAME` и `DESCRIPTION`.
 
