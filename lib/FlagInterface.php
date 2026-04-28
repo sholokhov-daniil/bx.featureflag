@@ -12,7 +12,21 @@ interface FlagInterface
      *
      * @return bool
      */
-    public function isActive(): bool;
+    public function isEnabled(): bool;
+
+    /**
+     * Название флага
+     *
+     * @return string
+     */
+    public function getName(): string;
+
+    /**
+     * Подробное описание флага
+     *
+     * @return string
+     */
+    public function getDescription(): string;
 
     /**
      * Код флага

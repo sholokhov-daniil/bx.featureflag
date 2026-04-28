@@ -2,6 +2,8 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
+use Bitrix\Main\ORM\Data\AddResult;
+use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\FlagInterface;
 
 /**
@@ -16,5 +18,13 @@ interface FlagRepositoryInterface
      * @param string $code Код флага
      * @return FlagInterface|null
      */
-    public function getByCode(string $code): ?FlagInterface;
+    public function findByCode(string $code): ?FlagInterface;
+
+    /**
+     * Создание нового флага
+     *
+     * @param FlagInfo $flag
+     * @return AddResult
+     */
+    public function create(FlagInfo $flag): AddResult;
 }

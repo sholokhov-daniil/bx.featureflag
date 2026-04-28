@@ -10,16 +10,16 @@ interface RuleInterface
     /**
      * Проверка принадлежности прафила флагу
      *
-     * @param FlagInterface $flag
+     * @param string $code
      * @return bool
      */
-    public function isSupported(FlagInterface $flag): bool;
+    public function isSupported(string $code): bool;
 
     /**
      * Проверка активности флага
      *
-     * @param object $context
+     * @param string $code
      * @return bool
      */
-    public function isEnabled(object $context): bool;
+    public function isEnabled(string $code): bool;
 }
