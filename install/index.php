@@ -39,6 +39,7 @@ class sholokhov_featureflag extends CModule
             self::IncludeModule($this->MODULE_ID);
             $this->InstallDB();
             $this->InstallEvents();
+            $this->InstallFiles();
         } catch (Throwable $exception) {
             $APPLICATION->ThrowException($exception->getMessage());
             return false;
@@ -52,6 +53,7 @@ class sholokhov_featureflag extends CModule
         self::IncludeModule($this->MODULE_ID);
         $this->UnInstallEvents();
         $this->UnInstallDB();
+        $this->UnInstallFiles();
         $this->Remove();
     }
 
@@ -80,6 +82,24 @@ class sholokhov_featureflag extends CModule
         if ($connection->isTableExists($table)) {
             $connection->dropTable($table);
         }
+    }
+
+    public function InstallFiles(): void
+    {
+        CopyDirFiles(
+            $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/admin',
+            $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin',
+            true,
+            true
+        );
+    }
+
+    public function UnInstallFiles(): void
+    {
+        DeleteDirFiles(
+            $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/admin',
+            $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin'
+        );
     }
 
     private function checkPhpVersion(): void

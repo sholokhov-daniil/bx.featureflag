@@ -2,7 +2,6 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
-use Exception;
 use Throwable;
 
 use Sholokhov\Featureflag\DTO\FlagInfo;
@@ -10,6 +9,8 @@ use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 
+use Bitrix\Main\Error;
+use Bitrix\Main\DB\DuplicateEntryException;
 use Bitrix\Main\EventManager;
 use Bitrix\Main\ORM\Event;
 use Bitrix\Main\ORM\Objectify\EntityObject;
@@ -76,16 +77,23 @@ class FeatureRepository implements FeatureRepositoryInterface
      *
      * @return AddResult Результат добавления записи
      *
-     * @throws Exception При ошибке добавления записи через ORM
      */
     public function create(FlagInfo $flag): AddResult
     {
-        return FeatureTable::add([
-            FeatureTable::FIELD_CODE => $flag->code,
-            FeatureTable::FIELD_NAME => $flag->name,
-            FeatureTable::FIELD_DESCRIPTION => $flag->description,
-            FeatureTable::FIELD_ENABLED => $flag->enabled,
-        ]);
+        try {
+            return FeatureTable::add([
+                FeatureTable::FIELD_CODE => $flag->code,
+                FeatureTable::FIELD_NAME => $flag->name,
+                FeatureTable::FIELD_DESCRIPTION => $flag->description,
+                FeatureTable::FIELD_ENABLED => $flag->enabled,
+            ]);
+        } catch (DuplicateEntryException) {
+            return (new AddResult())
+                ->addError(new Error('Флаг с таким кодом уже существует'));
+        } catch (Throwable $exception) {
+            return (new AddResult())
+                ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
+        }
     }
 
     /**
