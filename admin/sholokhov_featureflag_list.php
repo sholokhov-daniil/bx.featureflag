@@ -81,6 +81,13 @@ $formData = [
     'DESCRIPTION' => '',
     'ENABLED' => 'N',
 ];
+$detailMeta = [
+    'createdById' => 0,
+    'createdByName' => '',
+    'createdByUrl' => '',
+    'createdAt' => '',
+    'updatedAt' => '',
+];
 
 if ($mode === 'edit') {
     if ($currentCode === '') {
@@ -98,6 +105,26 @@ if ($mode === 'edit') {
                 'DESCRIPTION' => (string)$feature['DESCRIPTION'],
                 'ENABLED' => $normalizeEnabledToYN($feature['ENABLED']),
             ];
+
+            $detailMeta['createdById'] = (int)($feature[FeatureTable::FIELD_CREATED_BY] ?? 0);
+            $detailMeta['createdAt'] = (string)($feature[FeatureTable::FIELD_DATE_CREATE] ?? '');
+            $detailMeta['updatedAt'] = (string)($feature[FeatureTable::FIELD_DATE_UPDATE] ?? '');
+
+            if ($detailMeta['createdById'] > 0) {
+                $creator = UserTable::getByPrimary(
+                    $detailMeta['createdById'],
+                    ['select' => ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'LOGIN']]
+                )->fetch();
+
+                if ($creator) {
+                    $detailMeta['createdByName'] = $buildUserTitle($creator);
+                }
+
+                $detailMeta['createdByUrl'] = '/bitrix/admin/user_edit.php?lang='
+                    . rawurlencode(LANGUAGE_ID)
+                    . '&ID='
+                    . $detailMeta['createdById'];
+            }
         }
     }
 }
@@ -189,13 +216,14 @@ if (
             if ($result->isSuccess()) {
                 LocalRedirect($APPLICATION->GetCurPageParam(
                     'lang=' . LANGUAGE_ID . '&msg=status_updated',
-                    ['msg', 'mode', 'code']
+                    ['msg']
                 ));
             }
 
             $errors = array_merge($errors, $result->getErrorMessages());
         }
     }
+
 }
 
 if ($errors) {
@@ -241,75 +269,452 @@ if ($mode === '') {
 $contextMenu = new CAdminContextMenu($context);
 $contextMenu->Show();
 
+?>
+<style>
+    .ff-admin {
+        margin-top: 14px;
+    }
+    .ff-panel {
+        background: #ffffff;
+        border: 1px solid #dce3ed;
+        border-radius: 10px;
+        box-shadow: 0 10px 28px rgba(30, 41, 59, 0.07);
+        overflow: hidden;
+    }
+    .ff-panel-detail {
+        max-width: none;
+        width: 100%;
+        margin: 0;
+    }
+    .ff-panel-head {
+        padding: 14px 18px;
+        border-bottom: 1px solid #e8edf4;
+        background: linear-gradient(180deg, #fbfdff 0%, #f6f9ff 100%);
+    }
+    .ff-panel-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: #172033;
+    }
+    .ff-panel-subtitle {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: #5d6a80;
+    }
+    .ff-panel-body {
+        padding: 14px 18px 18px;
+    }
+    .ff-detail-grid {
+        display: grid;
+        grid-template-columns: minmax(140px, 220px) 1fr;
+        gap: 12px 18px;
+        align-items: center;
+    }
+    .ff-field-label {
+        font-size: 12px;
+        color: #5d6a80;
+    }
+    .ff-field-control {
+        min-width: 0;
+    }
+    .ff-detail-grid .ff-input,
+    .ff-detail-grid .ff-textarea {
+        width: 100%;
+        max-width: 760px;
+        border: 1px solid #c7d4e8;
+        border-radius: 10px;
+        background: #f8fbff;
+        color: #1e2a41;
+        font-size: 13px;
+        line-height: 1.45;
+        padding: 9px 12px;
+        box-sizing: border-box;
+        transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+    }
+    .ff-detail-grid input.ff-input[type="text"] {
+        appearance: none;
+        -webkit-appearance: none;
+        height: 40px;
+        min-height: 40px;
+        font-weight: 500;
+        letter-spacing: 0;
+    }
+    .ff-detail-grid textarea.ff-textarea {
+        appearance: none;
+        -webkit-appearance: none;
+        font-family: inherit;
+    }
+    .ff-detail-grid .ff-input:hover,
+    .ff-detail-grid .ff-textarea:hover {
+        background: #ffffff;
+        border-color: #b9c9e1;
+    }
+    .ff-detail-grid .ff-input:focus,
+    .ff-detail-grid .ff-textarea:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #4f83ff;
+        box-shadow: 0 0 0 3px rgba(79, 131, 255, 0.16);
+    }
+    .ff-textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+    .ff-readonly {
+        font-size: 13px;
+        color: #1e2a41;
+        min-height: 20px;
+    }
+    .ff-user-link {
+        color: #2b5fd9;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .ff-user-link:hover {
+        text-decoration: underline;
+    }
+    .ff-form-actions {
+        margin-top: 14px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .ff-btn {
+        display: inline-block;
+        border: 1px solid #cfd8e6;
+        background: #ffffff;
+        color: #22314d;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 18px;
+        padding: 7px 11px;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .ff-btn:hover {
+        border-color: #b5c4d8;
+        background: #f8fbff;
+    }
+    .ff-btn-primary {
+        border-color: #2463eb;
+        background: #2463eb;
+        color: #ffffff;
+    }
+    .ff-btn-primary:hover {
+        border-color: #1f58d1;
+        background: #1f58d1;
+    }
+    .ff-btn-danger {
+        border-color: #e4c4c4;
+        background: #fff6f6;
+        color: #9f2a2a;
+    }
+    .ff-btn-danger:hover {
+        border-color: #deabab;
+        background: #ffefef;
+    }
+    .ff-table-wrap {
+        overflow-x: auto;
+    }
+    .ff-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .ff-table thead th {
+        text-align: left;
+        padding: 10px 12px;
+        background: #f8faff;
+        border-bottom: 1px solid #e3eaf4;
+        font-size: 12px;
+        color: #5b6780;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .ff-table tbody td {
+        padding: 11px 12px;
+        border-bottom: 1px solid #edf2f8;
+        vertical-align: middle;
+        font-size: 13px;
+        color: #1e2a41;
+    }
+    .ff-table tbody tr:hover td {
+        background: #fbfcff;
+    }
+    .ff-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        color: #22314d;
+    }
+    .ff-badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 17px;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .ff-badge-on {
+        background: #e9f9ef;
+        border-color: #b5e7c5;
+        color: #117342;
+    }
+    .ff-badge-off {
+        background: #f4f6fb;
+        border-color: #d8e0ec;
+        color: #59667c;
+    }
+    .ff-switch-form {
+        margin: 0;
+    }
+    .ff-switch {
+        position: relative;
+        display: inline-block;
+        width: 38px;
+        height: 22px;
+        vertical-align: middle;
+    }
+    .ff-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .ff-switch-slider {
+        position: absolute;
+        inset: 0;
+        cursor: pointer;
+        background: #d8e0ec;
+        transition: .2s;
+        border-radius: 999px;
+    }
+    .ff-switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        top: 3px;
+        background: #ffffff;
+        border-radius: 50%;
+        transition: .2s;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    }
+    .ff-switch input:checked + .ff-switch-slider {
+        background: #2f7cff;
+    }
+    .ff-switch input:checked + .ff-switch-slider:before {
+        transform: translateX(16px);
+    }
+    .ff-state-label {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 12px;
+        color: #5d6a80;
+        vertical-align: middle;
+    }
+    .ff-user a {
+        color: #2b5fd9;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .ff-feature-link {
+        color: #2b5fd9;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .ff-feature-link:hover {
+        text-decoration: underline;
+    }
+    .ff-feature-code {
+        margin-top: 2px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 11px;
+        color: #6c7890;
+    }
+    .ff-feature-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ff-help-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid #c9d4e4;
+        color: #5f6f89;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: help;
+        user-select: none;
+        background: #f8fbff;
+        position: relative;
+    }
+    .ff-help-icon::before {
+        content: attr(data-tooltip);
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 10px);
+        transform: translateX(-50%) translateY(4px);
+        min-width: 180px;
+        max-width: 340px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #1f2738;
+        color: #f2f6ff;
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.35;
+        white-space: normal;
+        box-shadow: 0 10px 24px rgba(16, 23, 35, 0.28);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        z-index: 20;
+        transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
+    }
+    .ff-help-icon::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 4px);
+        transform: translateX(-50%) translateY(4px);
+        border-width: 6px;
+        border-style: solid;
+        border-color: #1f2738 transparent transparent transparent;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        z-index: 19;
+        transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
+    }
+    .ff-help-icon:hover::before,
+    .ff-help-icon:focus-visible::before,
+    .ff-help-icon:hover::after,
+    .ff-help-icon:focus-visible::after {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+    .ff-delete-inline {
+        margin: 0;
+    }
+</style>
+<div class="ff-admin">
+<?php
+
 if ($mode !== ''):
 ?>
-    <form method="post" action="<?=htmlspecialcharsbx($APPLICATION->GetCurPageParam('', ['msg']))?>">
-        <?=bitrix_sessid_post()?>
-        <input type="hidden" name="action" value="<?=$mode === 'add' ? 'add' : 'update'?>">
-        <table class="adm-detail-content-table edit-table">
-            <tr>
-                <td width="40%" class="adm-detail-content-cell-l"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CODE')?>:</td>
-                <td class="adm-detail-content-cell-r">
-                    <?php if ($mode === 'add'): ?>
+    <div class="ff-panel ff-panel-detail">
+        <div class="ff-panel-head">
+            <h2 class="ff-panel-title">
+                <?=$mode === 'add'
+                    ? Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_ADD')
+                    : Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_EDIT')?>
+            </h2>
+            <p class="ff-panel-subtitle"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_PAGE_TITLE')?></p>
+        </div>
+        <div class="ff-panel-body">
+            <form method="post" action="<?=htmlspecialcharsbx($APPLICATION->GetCurPageParam('', ['msg']))?>">
+                <?=bitrix_sessid_post()?>
+                <input type="hidden" name="action" value="<?=$mode === 'add' ? 'add' : 'update'?>">
+                <div class="ff-detail-grid">
+                    <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CODE')?>:</div>
+                    <div class="ff-field-control">
+                        <?php if ($mode === 'add'): ?>
+                            <input
+                                type="text"
+                                name="CODE"
+                                value="<?=htmlspecialcharsbx($formData['CODE'])?>"
+                                maxlength="255"
+                                class="ff-input ff-code"
+                                required
+                            >
+                        <?php else: ?>
+                            <div class="ff-readonly ff-code"><?=htmlspecialcharsbx($formData['CODE'])?></div>
+                            <input type="hidden" name="CODE" value="<?=htmlspecialcharsbx($formData['CODE'])?>">
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED')?>:</div>
+                    <div class="ff-field-control">
+                        <input type="hidden" name="ENABLED" value="<?=$formData['ENABLED']?>">
+                        <label class="ff-switch">
+                            <input
+                                type="checkbox"
+                                <?=$formData['ENABLED'] === 'Y' ? 'checked' : ''?>
+                                onchange="this.form.elements.ENABLED.value = this.checked ? 'Y' : 'N';"
+                            >
+                            <span class="ff-switch-slider"></span>
+                        </label>
+                        <span class="ff-state-label">
+                            <?=$formData['ENABLED'] === 'Y'
+                                ? Loc::getMessage('SHOLOKHOV_FEATUREFLAG_STATUS_ON')
+                                : Loc::getMessage('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')?>
+                        </span>
+                    </div>
+
+                    <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_NAME')?>:</div>
+                    <div class="ff-field-control">
                         <input
                             type="text"
-                            name="CODE"
-                            value="<?=htmlspecialcharsbx($formData['CODE'])?>"
-                            size="40"
+                            name="NAME"
+                            value="<?=htmlspecialcharsbx($formData['NAME'])?>"
                             maxlength="255"
+                            class="ff-input"
                             required
                         >
-                    <?php else: ?>
-                        <input
-                            type="text"
-                            value="<?=htmlspecialcharsbx($formData['CODE'])?>"
-                            size="40"
-                            disabled
-                        >
-                        <input
-                            type="hidden"
-                            name="CODE"
-                            value="<?=htmlspecialcharsbx($formData['CODE'])?>"
-                        >
+                    </div>
+
+                    <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION')?>:</div>
+                    <div class="ff-field-control">
+                        <textarea name="DESCRIPTION" class="ff-textarea"><?=htmlspecialcharsbx($formData['DESCRIPTION'])?></textarea>
+                    </div>
+
+                    <?php if ($mode === 'edit'): ?>
+                        <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY')?>:</div>
+                        <div class="ff-field-control ff-readonly">
+                            <?php if ($detailMeta['createdById'] > 0): ?>
+                                <a class="ff-user-link" href="<?=htmlspecialcharsbx($detailMeta['createdByUrl'])?>">
+                                    [<?=htmlspecialcharsbx((string)$detailMeta['createdById'])?>]
+                                </a>
+                                <?=htmlspecialcharsbx($detailMeta['createdByName'] ?: (string)$detailMeta['createdById'])?>
+                            <?php else: ?>
+                                &nbsp;
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT')?>:</div>
+                        <div class="ff-field-control ff-readonly"><?=htmlspecialcharsbx($detailMeta['createdAt'])?></div>
+
+                        <div class="ff-field-label"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT')?>:</div>
+                        <div class="ff-field-control ff-readonly"><?=htmlspecialcharsbx($detailMeta['updatedAt'])?></div>
                     <?php endif; ?>
-                </td>
-            </tr>
-            <tr>
-                <td class="adm-detail-content-cell-l"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_NAME')?>:</td>
-                <td class="adm-detail-content-cell-r">
-                    <input
-                        type="text"
-                        name="NAME"
-                        value="<?=htmlspecialcharsbx($formData['NAME'])?>"
-                        size="60"
-                        maxlength="255"
-                        required
-                    >
-                </td>
-            </tr>
-            <tr>
-                <td class="adm-detail-content-cell-l"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION')?>:</td>
-                <td class="adm-detail-content-cell-r">
-                    <textarea name="DESCRIPTION" rows="6" cols="80"><?=htmlspecialcharsbx($formData['DESCRIPTION'])?></textarea>
-                </td>
-            </tr>
-            <tr>
-                <td class="adm-detail-content-cell-l"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED')?>:</td>
-                <td class="adm-detail-content-cell-r">
-                    <input
-                        type="checkbox"
-                        name="ENABLED"
-                        value="Y"
-                        <?=$formData['ENABLED'] === 'Y' ? 'checked' : ''?>
-                    >
-                </td>
-            </tr>
-        </table>
-        <input type="submit" class="adm-btn-save" value="<?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_SAVE')?>">
-        <a href="<?=htmlspecialcharsbx($listPageUrl)?>" class="adm-btn">
-            <?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_CANCEL')?>
-        </a>
-    </form>
+                </div>
+                <div class="ff-form-actions">
+                    <input type="submit" class="ff-btn ff-btn-primary" value="<?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_SAVE')?>">
+                    <a href="<?=htmlspecialcharsbx($listPageUrl)?>" class="ff-btn">
+                        <?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_CANCEL')?>
+                    </a>
+                    <?php if ($mode === 'edit'): ?>
+                        <button
+                            type="submit"
+                            name="action"
+                            value="delete"
+                            class="ff-btn ff-btn-danger"
+                            onclick="return confirm('<?=CUtil::JSEscape(Loc::getMessage('SHOLOKHOV_FEATUREFLAG_CONFIRM_DELETE'))?>');"
+                        >
+                            <?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_DELETE')?>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
+    </div>
 <?php
 else:
     $rows = FeatureTable::getList([
@@ -345,85 +750,91 @@ else:
         }
     }
 ?>
-    <table class="adm-list-table">
-        <thead>
-        <tr class="adm-list-table-header">
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CODE')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_NAME')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY')?></div></td>
-            <td class="adm-list-table-cell"><div class="adm-list-table-cell-inner"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_ACTIONS')?></div></td>
-        </tr>
-        </thead>
-        <tbody>
-        <?php if (!$rows): ?>
-            <tr>
-                <td class="adm-list-table-cell" colspan="7">
-                    <?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_EMPTY_LIST')?>
-                </td>
-            </tr>
-        <?php else: ?>
-            <?php foreach ($rows as $row): ?>
-                <?php $enabledYN = $normalizeEnabledToYN($row['ENABLED']); ?>
-                <?php $creatorId = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0); ?>
-                <?php $creator = $creatorId > 0 ? ($usersById[$creatorId] ?? null) : null; ?>
-                <?php
-                $creatorUrl = '/bitrix/admin/user_edit.php?lang=' . rawurlencode(LANGUAGE_ID) . '&ID=' . $creatorId;
-                $creatorTitle = $creator ? $buildUserTitle($creator) : (string)$creatorId;
-                ?>
-                <tr class="adm-list-table-row">
-                    <td class="adm-list-table-cell"><?=htmlspecialcharsbx((string)$row['CODE'])?></td>
-                    <td class="adm-list-table-cell"><?=htmlspecialcharsbx((string)$row['NAME'])?></td>
-                    <td class="adm-list-table-cell"><?=htmlspecialcharsbx((string)$row['DESCRIPTION'])?></td>
-                    <td class="adm-list-table-cell"><?=($enabledYN === 'Y' ? Loc::getMessage('MAIN_YES') : Loc::getMessage('MAIN_NO'))?></td>
-                    <td class="adm-list-table-cell"><?=htmlspecialcharsbx((string)$row['DATE_UPDATE'])?></td>
-                    <td class="adm-list-table-cell">
-                        <?php if ($creatorId > 0): ?>
-                            <a href="<?=htmlspecialcharsbx($creatorUrl)?>">[<?=htmlspecialcharsbx((string)$creatorId)?>]</a>
-                            <?=htmlspecialcharsbx($creatorTitle)?>
-                        <?php else: ?>
-                            &nbsp;
-                        <?php endif; ?>
-                    </td>
-                    <td class="adm-list-table-cell">
-                        <a href="<?=htmlspecialcharsbx($APPLICATION->GetCurPageParam(
+    <div class="ff-panel">
+        <div class="ff-panel-head">
+            <h2 class="ff-panel-title"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_PAGE_TITLE')?></h2>
+            <p class="ff-panel-subtitle"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_PAGE_SUBTITLE')?></p>
+        </div>
+        <div class="ff-panel-body ff-table-wrap">
+            <table class="ff-table">
+                <thead>
+                <tr>
+                    <th><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_NAME')?></th>
+                    <th><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED')?></th>
+                    <th><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT')?></th>
+                    <th><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY')?></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if (!$rows): ?>
+                    <tr>
+                        <td colspan="4"><?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_EMPTY_LIST')?></td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($rows as $row): ?>
+                        <?php $enabledYN = $normalizeEnabledToYN($row['ENABLED']); ?>
+                        <?php $creatorId = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0); ?>
+                        <?php $creator = $creatorId > 0 ? ($usersById[$creatorId] ?? null) : null; ?>
+                        <?php
+                        $creatorUrl = '/bitrix/admin/user_edit.php?lang=' . rawurlencode(LANGUAGE_ID) . '&ID=' . $creatorId;
+                        $creatorTitle = $creator ? $buildUserTitle($creator) : (string)$creatorId;
+                        $detailsUrl = $APPLICATION->GetCurPageParam(
                             'lang=' . LANGUAGE_ID . '&mode=edit&code=' . rawurlencode((string)$row['CODE']),
                             ['mode', 'code', 'msg']
-                        ))?>">
-                            <?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_EDIT')?>
-                        </a>
-                        <form method="post" style="display:inline-block; margin-left:8px;">
-                            <?=bitrix_sessid_post()?>
-                            <input type="hidden" name="action" value="toggle">
-                            <input type="hidden" name="code" value="<?=htmlspecialcharsbx((string)$row['CODE'])?>">
-                            <input type="hidden" name="enabled" value="<?=$enabledYN === 'Y' ? 'N' : 'Y'?>">
-                            <input
-                                type="submit"
-                                class="adm-btn"
-                                value="<?=$enabledYN === 'Y'
-                                    ? Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_DISABLE')
-                                    : Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_ENABLE')?>"
-                            >
-                        </form>
-                        <form
-                            method="post"
-                            style="display:inline-block; margin-left:8px;"
-                            onsubmit="return confirm('<?=CUtil::JSEscape(Loc::getMessage('SHOLOKHOV_FEATUREFLAG_CONFIRM_DELETE'))?>');"
-                        >
-                            <?=bitrix_sessid_post()?>
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="code" value="<?=htmlspecialcharsbx((string)$row['CODE'])?>">
-                            <input type="submit" class="adm-btn" value="<?=Loc::getMessage('SHOLOKHOV_FEATUREFLAG_BTN_DELETE')?>">
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-    </table>
+                        );
+                        ?>
+                        <tr>
+                            <td>
+                                <span class="ff-feature-title">
+                                    <a class="ff-feature-link" href="<?=htmlspecialcharsbx($detailsUrl)?>">
+                                        <?=htmlspecialcharsbx((string)$row['NAME'])?>
+                                    </a>
+                                    <?php if (trim((string)$row['DESCRIPTION']) !== ''): ?>
+                                        <span class="ff-help-icon" data-tooltip="<?=htmlspecialcharsbx((string)$row['DESCRIPTION'])?>" tabindex="0">?</span>
+                                    <?php endif; ?>
+                                </span>
+                                <div class="ff-feature-code"><?=htmlspecialcharsbx((string)$row['CODE'])?></div>
+                            </td>
+                            <td>
+                                <form method="post" class="ff-switch-form">
+                                    <?=bitrix_sessid_post()?>
+                                    <input type="hidden" name="action" value="toggle">
+                                    <input type="hidden" name="code" value="<?=htmlspecialcharsbx((string)$row['CODE'])?>">
+                                    <input type="hidden" name="enabled" value="<?=$enabledYN?>">
+                                    <label class="ff-switch">
+                                        <input
+                                            type="checkbox"
+                                            <?=$enabledYN === 'Y' ? 'checked' : ''?>
+                                            onchange="this.form.elements.enabled.value = this.checked ? 'Y' : 'N'; this.form.submit();"
+                                        >
+                                        <span class="ff-switch-slider"></span>
+                                    </label>
+                                    <span class="ff-state-label">
+                                        <?=$enabledYN === 'Y'
+                                            ? Loc::getMessage('SHOLOKHOV_FEATUREFLAG_STATUS_ON')
+                                            : Loc::getMessage('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')?>
+                                    </span>
+                                </form>
+                            </td>
+                            <td><?=htmlspecialcharsbx((string)$row['DATE_UPDATE'])?></td>
+                            <td class="ff-user">
+                                <?php if ($creatorId > 0): ?>
+                                    <a href="<?=htmlspecialcharsbx($creatorUrl)?>">[<?=htmlspecialcharsbx((string)$creatorId)?>]</a>
+                                    <?=htmlspecialcharsbx($creatorTitle)?>
+                                <?php else: ?>
+                                    &nbsp;
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 <?php
 endif;
-
+?>
+</div>
+<?php
 require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/epilog_admin.php';
