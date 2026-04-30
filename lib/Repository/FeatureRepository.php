@@ -89,7 +89,9 @@ class FeatureRepository implements FeatureRepositoryInterface
             ]);
         } catch (DuplicateEntryException) {
             return (new AddResult())
-                ->addError(new Error('Флаг с таким кодом уже существует'));
+                ->addError(new Error('Флаг с таким кодом уже существует', 'DUPLICATE_CODE', [
+                    'field' => 'code',
+                ]));
         } catch (Throwable $exception) {
             return (new AddResult())
                 ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));

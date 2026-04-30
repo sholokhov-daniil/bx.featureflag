@@ -92,6 +92,13 @@ class sholokhov_featureflag extends CModule
             true,
             true
         );
+
+        CopyDirFiles(
+            $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/js',
+            $_SERVER['DOCUMENT_ROOT'] . '/local/js',
+            true,
+            true
+        );
     }
 
     public function UnInstallFiles(): void
@@ -100,6 +107,8 @@ class sholokhov_featureflag extends CModule
             $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/admin',
             $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin'
         );
+
+        DeleteDirFilesEx('/local/js/sholokhov/featureflag-admin');
     }
 
     private function checkPhpVersion(): void

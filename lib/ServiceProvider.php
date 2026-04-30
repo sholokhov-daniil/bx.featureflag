@@ -5,6 +5,7 @@ namespace Sholokhov\Featureflag;
 use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
 use Sholokhov\Featureflag\Repository\FeatureRepositoryInterface;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
+use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
 
 use Bitrix\Main\DI\ServiceLocator;
 use Bitrix\Main\ObjectNotFoundException;
@@ -47,5 +48,17 @@ class ServiceProvider
     public static function getRuleRegistry(): RuleRegistryInterface
     {
         return ServiceLocator::getInstance()->get(RuleRegistryInterface::class);
+    }
+
+    /**
+     * Сервис админ-управления фича-флагами.
+     *
+     * @return AdminFeatureFlagServiceInterface
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
+     */
+    public static function getAdminFeatureFlagService(): AdminFeatureFlagServiceInterface
+    {
+        return ServiceLocator::getInstance()->get(AdminFeatureFlagServiceInterface::class);
     }
 }
