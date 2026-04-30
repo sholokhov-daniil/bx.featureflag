@@ -8,9 +8,11 @@ use Bitrix\Main\Result;
 use Bitrix\Main\Type\Date;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserTable;
+use Throwable;
 use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\ORM\FeatureTable;
+use Sholokhov\Featureflag\ORM\FeatureTagTable;
 
 Loc::loadMessages(__FILE__);
 
@@ -28,14 +30,22 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     private const FIELD_NAME = 'name';
     private const FIELD_DESCRIPTION = 'description';
     private const FIELD_ENABLED = 'enabled';
+    private const FIELD_TAG_ID = 'tagId';
+    private const FIELD_ID = 'id';
 
     private const CODE_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]*$/';
+    private bool $isSchemaInitialized = false;
 
     /**
      * @inheritDoc
      */
     public function list(): Result
     {
+        $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
         $rows = FeatureTable::query()
             ->setSelect(['*'])
             ->setOrder([
@@ -44,7 +54,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ])
             ->fetchAll();
 
-        return (new Result())->setData([
+        return $result->setData([
             'items' => $this->prepareFlags($rows),
         ]);
     }
@@ -55,6 +65,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     public function get(string $code): Result
     {
         $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
         $code = trim($code);
 
         $row = $this->getFlagRow($code, $result);
@@ -70,16 +84,20 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function create(string $code, string $name, string $description, mixed $enabled): Result
+    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId): Result
     {
         $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
 
         $code = trim($code);
         $name = trim($name);
         $description = trim($description);
         $enabledValue = $this->parseBoolean($enabled);
+        $tagIdValue = $this->parseTagId($tagId);
 
-        $this->validatePayload($result, $code, $name, $description, $enabledValue);
+        $this->validatePayload($result, $code, $name, $description, $enabledValue, $tagIdValue);
         if (!$result->isSuccess()) {
             return $result;
         }
@@ -96,6 +114,17 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             return $result;
         }
 
+        if ($tagIdValue !== null) {
+            $bindTagResult = FeatureTable::update($code, [
+                FeatureTable::FIELD_TAG_ID => $tagIdValue,
+            ]);
+
+            if (!$bindTagResult->isSuccess()) {
+                $this->appendResultErrors($result, $bindTagResult);
+                return $result;
+            }
+        }
+
         $row = $this->getFlagRow($code, $result);
         if ($row === null) {
             return $result;
@@ -109,16 +138,20 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function update(string $code, string $name, string $description, mixed $enabled): Result
+    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId): Result
     {
         $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
 
         $code = trim($code);
         $name = trim($name);
         $description = trim($description);
         $enabledValue = $this->parseBoolean($enabled);
+        $tagIdValue = $this->parseTagId($tagId);
 
-        $this->validatePayload($result, $code, $name, $description, $enabledValue);
+        $this->validatePayload($result, $code, $name, $description, $enabledValue, $tagIdValue);
         if (!$result->isSuccess()) {
             return $result;
         }
@@ -132,6 +165,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             FeatureTable::FIELD_NAME => $name,
             FeatureTable::FIELD_DESCRIPTION => $description,
             FeatureTable::FIELD_ENABLED => (bool)$enabledValue,
+            FeatureTable::FIELD_TAG_ID => $tagIdValue,
         ]);
 
         if (!$updateResult->isSuccess()) {
@@ -155,6 +189,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     public function delete(string $code): Result
     {
         $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
         $code = trim($code);
 
         if ($code === '') {
@@ -179,6 +217,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     public function toggle(string $code, mixed $enabled): Result
     {
         $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
         $code = trim($code);
         $enabledValue = $this->parseBoolean($enabled);
 
@@ -209,6 +251,181 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
+     * @inheritDoc
+     */
+    public function tagList(): Result
+    {
+        $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
+        $rows = FeatureTagTable::query()
+            ->setSelect([
+                FeatureTagTable::FIELD_ID,
+                FeatureTagTable::FIELD_NAME,
+                FeatureTagTable::FIELD_SORT,
+            ])
+            ->setOrder([
+                FeatureTagTable::FIELD_SORT => 'ASC',
+                FeatureTagTable::FIELD_NAME => 'ASC',
+                FeatureTagTable::FIELD_ID => 'ASC',
+            ])
+            ->fetchAll();
+
+        return $result->setData([
+            'items' => array_map(
+                static fn(array $row): array => [
+                    'id' => (int)($row[FeatureTagTable::FIELD_ID] ?? 0),
+                    'name' => (string)($row[FeatureTagTable::FIELD_NAME] ?? ''),
+                ],
+                $rows,
+            ),
+        ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function tagCreate(string $name): Result
+    {
+        $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
+        $name = trim($name);
+
+        $this->validateTagName($result, $name);
+        if (!$result->isSuccess()) {
+            return $result;
+        }
+
+        $existingByName = $this->findTagByName($name);
+        if ($existingByName !== null) {
+            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+            return $result;
+        }
+
+        $createResult = FeatureTagTable::add([
+            FeatureTagTable::FIELD_NAME => $name,
+        ]);
+
+        if (!$createResult->isSuccess()) {
+            $this->appendResultErrors($result, $createResult);
+            return $result;
+        }
+
+        $tagId = (int)$createResult->getId();
+        $tag = $this->getTagRow($tagId, $result);
+        if ($tag === null) {
+            return $result;
+        }
+
+        return $result->setData([
+            'tag' => [
+                'id' => (int)$tag[FeatureTagTable::FIELD_ID],
+                'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
+            ],
+        ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function tagUpdate(string $id, string $name): Result
+    {
+        $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
+        $name = trim($name);
+        $tagId = (int)$id;
+
+        if ($tagId <= 0) {
+            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+            return $result;
+        }
+
+        $this->validateTagName($result, $name);
+        if (!$result->isSuccess()) {
+            return $result;
+        }
+
+        $currentTag = $this->getTagRow($tagId, $result);
+        if ($currentTag === null) {
+            return $result;
+        }
+
+        $existingByName = $this->findTagByName($name);
+        if ($existingByName !== null && (int)$existingByName[FeatureTagTable::FIELD_ID] !== $tagId) {
+            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+            return $result;
+        }
+
+        $updateResult = FeatureTagTable::update($tagId, [
+            FeatureTagTable::FIELD_NAME => $name,
+        ]);
+
+        if (!$updateResult->isSuccess()) {
+            $this->appendResultErrors($result, $updateResult);
+            return $result;
+        }
+
+        $tag = $this->getTagRow($tagId, $result);
+        if ($tag === null) {
+            return $result;
+        }
+
+        return $result->setData([
+            'tag' => [
+                'id' => (int)$tag[FeatureTagTable::FIELD_ID],
+                'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
+            ],
+        ]);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function tagDelete(string $id): Result
+    {
+        $result = new Result();
+        if (!$this->ensureSchema($result)) {
+            return $result;
+        }
+
+        $tagId = (int)$id;
+
+        if ($tagId <= 0) {
+            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+            return $result;
+        }
+
+        $tag = $this->getTagRow($tagId, $result);
+        if ($tag === null) {
+            return $result;
+        }
+
+        $connection = FeatureTable::getEntity()->getConnection();
+        $sqlHelper = $connection->getSqlHelper();
+        $featureTable = $sqlHelper->quote(FeatureTable::getTableName());
+        $tagField = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
+        $connection->queryExecute("UPDATE {$featureTable} SET {$tagField} = NULL WHERE {$tagField} = {$tagId}");
+
+        $deleteResult = FeatureTagTable::delete($tagId);
+        if (!$deleteResult->isSuccess()) {
+            $this->appendResultErrors($result, $deleteResult);
+            return $result;
+        }
+
+        return $result->setData([
+            'id' => $tagId,
+        ]);
+    }
+
+    /**
      * Валидирует данные формы фича-флага.
      *
      * @param Result $result
@@ -216,9 +433,17 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * @param string $name
      * @param string $description
      * @param bool|null $enabled
+     * @param int|null $tagId
      * @return void
      */
-    private function validatePayload(Result $result, string $code, string $name, string $description, ?bool $enabled): void
+    private function validatePayload(
+        Result $result,
+        string $code,
+        string $name,
+        string $description,
+        ?bool $enabled,
+        ?int $tagId,
+    ): void
     {
         if ($code === '') {
             $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
@@ -244,6 +469,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         if ($enabled === null) {
             $this->addFieldError($result, self::FIELD_ENABLED, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
+        }
+
+        if ($tagId !== null && !$this->isTagExists($tagId)) {
+            $this->addFieldError($result, self::FIELD_TAG_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
         }
     }
 
@@ -281,25 +510,39 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     private function prepareFlags(array $rows): array
     {
         $userIds = [];
+        $tagIds = [];
         foreach ($rows as $row) {
             $createdBy = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0);
             if ($createdBy > 0) {
                 $userIds[] = $createdBy;
             }
+
+            $tagId = (int)($row[FeatureTable::FIELD_TAG_ID] ?? 0);
+            if ($tagId > 0) {
+                $tagIds[] = $tagId;
+            }
         }
 
         $users = $this->loadUsers($userIds);
+        $tags = $this->loadTags($tagIds);
         $items = [];
 
         foreach ($rows as $row) {
             $createdById = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0);
             $creator = $users[$createdById] ?? null;
+            $tagId = (int)($row[FeatureTable::FIELD_TAG_ID] ?? 0);
+            $tagName = $tagId > 0 ? ($tags[$tagId]['NAME'] ?? '') : '';
 
             $items[] = [
                 'code' => (string)($row[FeatureTable::FIELD_CODE] ?? ''),
                 'name' => (string)($row[FeatureTable::FIELD_NAME] ?? ''),
                 'description' => (string)($row[FeatureTable::FIELD_DESCRIPTION] ?? ''),
                 'enabled' => $this->normalizeEnabled($row[FeatureTable::FIELD_ENABLED] ?? false),
+                'tagId' => $tagId > 0 ? $tagId : null,
+                'tag' => [
+                    'id' => $tagId > 0 ? $tagId : null,
+                    'name' => $tagName,
+                ],
                 'createdAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_CREATE] ?? null),
                 'updatedAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_UPDATE] ?? null),
                 'createdBy' => [
@@ -334,6 +577,33 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         while ($user = $result->fetch()) {
             $map[(int)$user['ID']] = $user;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param int[] $tagIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadTags(array $tagIds): array
+    {
+        $tagIds = array_values(array_unique(array_filter(array_map('intval', $tagIds))));
+        if ($tagIds === []) {
+            return [];
+        }
+
+        $map = [];
+        $result = FeatureTagTable::query()
+            ->setSelect([
+                FeatureTagTable::FIELD_ID,
+                FeatureTagTable::FIELD_NAME,
+            ])
+            ->whereIn(FeatureTagTable::FIELD_ID, $tagIds)
+            ->exec();
+
+        while ($tag = $result->fetch()) {
+            $map[(int)$tag[FeatureTagTable::FIELD_ID]] = $tag;
         }
 
         return $map;
@@ -396,6 +666,49 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
+     * Проверяет и доинициализирует схему для тегов при обновлении модуля.
+     *
+     * @param Result $result
+     * @return bool
+     */
+    private function ensureSchema(Result $result): bool
+    {
+        if ($this->isSchemaInitialized) {
+            return true;
+        }
+
+        try {
+            $connection = FeatureTable::getEntity()->getConnection();
+
+            $tagTableName = FeatureTagTable::getTableName();
+            if (!$connection->isTableExists($tagTableName)) {
+                FeatureTagTable::getEntity()->createDbTable();
+            }
+
+            $featureTableName = FeatureTable::getTableName();
+            if (!$connection->isTableExists($featureTableName)) {
+                FeatureTable::getEntity()->createDbTable();
+            } else {
+                $fields = array_change_key_case($connection->getTableFields($featureTableName), CASE_UPPER);
+                if (!isset($fields[FeatureTable::FIELD_TAG_ID])) {
+                    $sqlHelper = $connection->getSqlHelper();
+                    $tableSql = $sqlHelper->quote($featureTableName);
+                    $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
+                    $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} int(11) NULL");
+                }
+            }
+        } catch (Throwable $exception) {
+            $result->addError(new Error(
+                (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_SCHEMA_INIT') ?: $exception->getMessage(),
+            ));
+            return false;
+        }
+
+        $this->isSchemaInitialized = true;
+        return true;
+    }
+
+    /**
      * Преобразует входной флаг активности в bool или null (если значение невалидно).
      *
      * @param mixed $value
@@ -452,6 +765,90 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
+     * Преобразует входной идентификатор тега в int|null.
+     *
+     * @param string $value
+     * @return int|null
+     */
+    private function parseTagId(string $value): ?int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        $tagId = (int)$value;
+        return $tagId > 0 ? $tagId : null;
+    }
+
+    /**
+     * @param Result $result
+     * @param string $name
+     * @return void
+     */
+    private function validateTagName(Result $result, string $name): void
+    {
+        if ($name === '') {
+            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_TAG_NAME'));
+        } elseif (mb_strlen($name) > 255) {
+            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NAME_TOO_LONG'));
+        }
+    }
+
+    /**
+     * @param int $tagId
+     * @param Result $result
+     * @return array<string, mixed>|null
+     */
+    private function getTagRow(int $tagId, Result $result): ?array
+    {
+        $row = FeatureTagTable::query()
+            ->setSelect([
+                FeatureTagTable::FIELD_ID,
+                FeatureTagTable::FIELD_NAME,
+            ])
+            ->where(FeatureTagTable::FIELD_ID, $tagId)
+            ->fetch();
+
+        if ($row === false) {
+            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
+            return null;
+        }
+
+        return $row;
+    }
+
+    /**
+     * @param string $name
+     * @return array<string, mixed>|null
+     */
+    private function findTagByName(string $name): ?array
+    {
+        $row = FeatureTagTable::query()
+            ->setSelect([
+                FeatureTagTable::FIELD_ID,
+                FeatureTagTable::FIELD_NAME,
+            ])
+            ->where(FeatureTagTable::FIELD_NAME, $name)
+            ->fetch();
+
+        return $row === false ? null : $row;
+    }
+
+    /**
+     * @param int $tagId
+     * @return bool
+     */
+    private function isTagExists(int $tagId): bool
+    {
+        return FeatureTagTable::query()
+            ->setSelect([FeatureTagTable::FIELD_ID])
+            ->where(FeatureTagTable::FIELD_ID, $tagId)
+            ->setLimit(1)
+            ->fetch() !== false;
+    }
+
+    /**
      * Копирует ошибки из внутреннего Result в результирующий Result API.
      *
      * @param Result $target
@@ -501,6 +898,15 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     private function guessFieldFromErrorMessage(string $message): ?string
     {
         $normalized = mb_strtolower($message);
+
+        if (
+            str_contains($normalized, 'тег')
+            || str_contains($normalized, 'tag')
+            || str_contains($normalized, 'идентификатор')
+            || str_contains($normalized, 'id')
+        ) {
+            return self::FIELD_TAG_ID;
+        }
 
         if (str_contains($normalized, 'код') || str_contains($normalized, 'code')) {
             return self::FIELD_CODE;

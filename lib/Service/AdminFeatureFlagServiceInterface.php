@@ -31,9 +31,10 @@ interface AdminFeatureFlagServiceInterface
      * @param string $name
      * @param string $description
      * @param mixed $enabled
+     * @param string $tagId
      * @return Result{flag: array<string, mixed>}
      */
-    public function create(string $code, string $name, string $description, mixed $enabled): Result;
+    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId): Result;
 
     /**
      * Обновляет существующий фича-флаг.
@@ -42,9 +43,10 @@ interface AdminFeatureFlagServiceInterface
      * @param string $name
      * @param string $description
      * @param mixed $enabled
+     * @param string $tagId
      * @return Result{flag: array<string, mixed>}
      */
-    public function update(string $code, string $name, string $description, mixed $enabled): Result;
+    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId): Result;
 
     /**
      * Удаляет фича-флаг.
@@ -62,4 +64,36 @@ interface AdminFeatureFlagServiceInterface
      * @return Result{flag: array<string, mixed>}
      */
     public function toggle(string $code, mixed $enabled): Result;
+
+    /**
+     * Возвращает список тегов фича-флагов.
+     *
+     * @return Result{items: array<int, array<string, mixed>>}
+     */
+    public function tagList(): Result;
+
+    /**
+     * Создаёт новый тег.
+     *
+     * @param string $name
+     * @return Result{tag: array<string, mixed>}
+     */
+    public function tagCreate(string $name): Result;
+
+    /**
+     * Обновляет существующий тег.
+     *
+     * @param string $id
+     * @param string $name
+     * @return Result{tag: array<string, mixed>}
+     */
+    public function tagUpdate(string $id, string $name): Result;
+
+    /**
+     * Удаляет тег.
+     *
+     * @param string $id
+     * @return Result{id: int}
+     */
+    public function tagDelete(string $id): Result;
 }

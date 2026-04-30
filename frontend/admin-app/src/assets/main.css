@@ -525,7 +525,8 @@
 }
 
 .ff-input,
-.ff-textarea {
+.ff-textarea,
+.ff-select {
   appearance: none;
   color: #122033;
   font: inherit;
@@ -553,6 +554,43 @@
   min-height: 120px;
   padding: 10px 12px;
   resize: vertical;
+}
+
+.ff-select {
+  background: #f8fbff;
+  border: 1px solid #d6e0ee;
+  border-radius: 8px;
+  height: 48px;
+  padding: 0 38px 0 14px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6d7d93 50%),
+    linear-gradient(135deg, #6d7d93 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.ff-select:hover {
+  border-color: #c3d2e6;
+}
+
+.ff-select:focus {
+  background-color: #fff;
+  border-color: #2677ff;
+  box-shadow: 0 0 0 3px rgba(38, 119, 255, 0.14);
+}
+
+.ff-select.is-invalid {
+  background-color: #fff;
+  border-color: #de5a4c;
+}
+
+.ff-select.is-invalid:focus {
+  border-color: #de5a4c;
+  box-shadow: 0 0 0 3px rgba(222, 90, 76, 0.18);
 }
 
 .ff-input--main,

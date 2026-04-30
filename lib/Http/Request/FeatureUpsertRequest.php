@@ -19,6 +19,7 @@ final class FeatureUpsertRequest
      * @param string $name Название фича-флага.
      * @param string $description Описание фича-флага.
      * @param bool $enabled Признак активности.
+     * @param string $tagId Идентификатор тега (опционально).
      */
     public function __construct(
         #[NotEmpty(errorMessage: 'Не заполнен код флага')]
@@ -32,6 +33,9 @@ final class FeatureUpsertRequest
         public readonly string $description,
         #[InArray([true, false], strict: true, errorMessage: 'Неправильное значение поля активности')]
         public readonly ?bool $enabled,
+        #[RegExp('/^[0-9]*$/', errorMessage: 'Неправильное значение тега')]
+        #[Length(max: 20, errorMessage: 'Неправильное значение тега')]
+        public readonly string $tagId,
     ) {
     }
 
@@ -48,6 +52,7 @@ final class FeatureUpsertRequest
             name: (string)$request->get('name'),
             description: (string)$request->get('description'),
             enabled: EnabledValueNormalizer::normalize($request->get('enabled')),
+            tagId: trim((string)$request->get('tagId')),
         );
     }
 }

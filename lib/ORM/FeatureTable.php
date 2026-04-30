@@ -37,6 +37,9 @@ class FeatureTable extends DataManager
     /** Описание фичи */
     public const string FIELD_DESCRIPTION = 'DESCRIPTION';
 
+    /** Идентификатор тега */
+    public const string FIELD_TAG_ID = 'TAG_ID';
+
     /** Дата создания */
     public const string FIELD_DATE_CREATE = 'DATE_CREATE';
 
@@ -57,31 +60,34 @@ class FeatureTable extends DataManager
     public static function getMap(): array
     {
         return [
-            new Fields\StringField(self::FIELD_CODE)
+            (new Fields\StringField(self::FIELD_CODE))
                 ->configurePrimary(),
 
-            new Fields\BooleanField(self::FIELD_ENABLED)
+            (new Fields\BooleanField(self::FIELD_ENABLED))
                 ->configureDefaultValue(false),
 
-            new Fields\StringField(self::FIELD_NAME)
+            (new Fields\StringField(self::FIELD_NAME))
                 ->configureRequired()
                 ->configureSize(255),
 
-            new Fields\TextField(self::FIELD_DESCRIPTION)
+            (new Fields\TextField(self::FIELD_DESCRIPTION))
                 ->configureDefaultValue(''),
 
-            new Fields\DatetimeField(self::FIELD_DATE_CREATE)
+            (new Fields\IntegerField(self::FIELD_TAG_ID))
+                ->configureNullable(),
+
+            (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
                 ->configureRequired()
                 ->configureDefaultValueNow(),
 
-            new Fields\DatetimeField(self::FIELD_DATE_UPDATE)
+            (new Fields\DatetimeField(self::FIELD_DATE_UPDATE))
                 ->configureRequired()
                 ->configureDefaultValueNow(),
 
-            new Fields\IntegerField(self::FIELD_CREATED_BY)
+            (new Fields\IntegerField(self::FIELD_CREATED_BY))
                 ->configureRequired(),
 
-            new Fields\IntegerField(self::FIELD_UPDATED_BY)
+            (new Fields\IntegerField(self::FIELD_UPDATED_BY))
                 ->configureRequired(),
         ];
     }

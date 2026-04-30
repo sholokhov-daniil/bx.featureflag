@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { Loc } from '@/utils/localization.ts';
 import ToggleSwitch from './components/ToggleSwitch.vue'
 
 interface FeatureFlagUser {
@@ -8,11 +9,18 @@ interface FeatureFlagUser {
   url: string
 }
 
+interface FeatureTagItem {
+  id: number
+  name: string
+}
+
 interface FeatureFlagItem {
   code: string
   name: string
   description: string
   enabled: boolean
+  tagId: number | null
+  tag: FeatureTagItem | null
   createdAt: string
   updatedAt: string
   createdBy: FeatureFlagUser
@@ -23,11 +31,12 @@ interface FeatureFlagForm {
   name: string
   description: string
   enabled: boolean
+  tagId: string
 }
 
 interface BootstrapConfig {
   actions: Record<string, string>
-  messages: Record<string, string>
+  urls?: Record<string, string>
 }
 
 interface ActionConfig {
@@ -37,17 +46,19 @@ interface ActionConfig {
   update: string
   delete: string
   toggle: string
+  tagList: string
 }
 
 type NoticeType = 'success' | 'error'
 type ModalMode = 'create' | 'edit'
-type FormFieldKey = 'code' | 'name' | 'description' | 'enabled'
+type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId'
 
 interface FieldErrors {
   code: string[]
   name: string[]
   description: string[]
   enabled: string[]
+  tagId: string[]
 }
 
 interface FormErrorState {
@@ -57,46 +68,11 @@ interface FormErrorState {
 
 const bootstrap: BootstrapConfig = window.SholokhovFeatureFlagAdmin ?? {
   actions: {},
-  messages: {},
 }
 
-const messages = {
-  subtitle: '',
-  add: 'Добавить флаг',
-  createTitle: 'Новый фича-флаг',
-  editTitle: 'Настройки фича-флага',
-  save: 'Сохранить',
-  cancel: 'Отменить',
-  delete: 'Удалить',
-  loading: 'Загрузка...',
-  empty: 'Фича-флаги не найдены',
-  name: 'Название',
-  code: 'Код',
-  description: 'Описание',
-  enabled: 'Включен',
-  createdBy: 'Создал',
-  createdAt: 'Дата создания',
-  updatedAt: 'Обновлён',
-  statusOn: 'Включен',
-  statusOff: 'Выключен',
-  deleteConfirm: 'Удалить флаг?',
-  createdSuccess: 'Флаг успешно создан',
-  updatedSuccess: 'Флаг успешно обновлён',
-  deletedSuccess: 'Флаг успешно удалён',
-  toggleSuccess: 'Статус флага обновлён',
-  genericError: 'Не удалось выполнить операцию',
-  loadError: 'Не удалось загрузить список фич',
-  newFlagLabel: 'Новая фича',
-  hintLabel: 'Описание фичи',
-  closeLabel: 'Закрыть',
-  openDetail: 'Открыть настройки',
-  panelTitle: 'Фича-флаги',
-  panelCaption: 'Управление состоянием и параметрами через контроллер',
-  totalLabel: 'Флагов в системе',
-  descriptionPlaceholder: '',
-  namePlaceholder: '',
-  codePlaceholder: '',
-  ...bootstrap.messages,
+
+const urls = {
+  tagsPage: bootstrap.urls?.tagsPage ?? '',
 }
 
 const actions: ActionConfig = {
@@ -106,9 +82,11 @@ const actions: ActionConfig = {
   update: bootstrap.actions.update ?? '',
   delete: bootstrap.actions.delete ?? '',
   toggle: bootstrap.actions.toggle ?? '',
+  tagList: bootstrap.actions.tagList ?? '',
 }
 
 const flags = ref<FeatureFlagItem[]>([])
+const tags = ref<FeatureTagItem[]>([])
 const isListLoading = ref(true)
 const isModalOpen = ref(false)
 const isModalLoading = ref(false)
@@ -127,6 +105,7 @@ const fieldErrors = reactive<FieldErrors>({
   name: [],
   description: [],
   enabled: [],
+  tagId: [],
 })
 
 const form = reactive<FeatureFlagForm>({
@@ -134,6 +113,7 @@ const form = reactive<FeatureFlagForm>({
   name: '',
   description: '',
   enabled: false,
+  tagId: '',
 })
 
 const detailMeta = reactive({
@@ -143,10 +123,11 @@ const detailMeta = reactive({
 })
 
 const isEditMode = computed(() => modalMode.value === 'edit')
-const modalTitle = computed(() => isEditMode.value ? messages.editTitle : messages.createTitle)
+const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_TAGS_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_TAGS_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
 
 void loadFlags()
+void loadTags()
 
 async function loadFlags(): Promise<void> {
   isListLoading.value = true
@@ -156,10 +137,24 @@ async function loadFlags(): Promise<void> {
     const response = await runAction<{ items: FeatureFlagItem[] }>(actions.list)
     flags.value = response.items ?? []
   } catch (error) {
-    listError.value = extractErrorText(error, messages.loadError)
+    listError.value = extractErrorText(error, Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOAD_ERROR'))
     showNotice('error', listError.value)
   } finally {
     isListLoading.value = false
+  }
+}
+
+async function loadTags(): Promise<void> {
+  if (!actions.tagList) {
+    tags.value = []
+    return
+  }
+
+  try {
+    const response = await runAction<{ items: FeatureTagItem[] }>(actions.tagList)
+    tags.value = response.items ?? []
+  } catch {
+    tags.value = []
   }
 }
 
@@ -191,7 +186,7 @@ async function openEditModal(code: string): Promise<void> {
     hydrateForm(response.flag)
   } catch (error) {
     isModalOpen.value = false
-    showNotice('error', extractErrorText(error, messages.genericError))
+    showNotice('error', extractErrorText(error, Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ERROR')))
   } finally {
     isModalLoading.value = false
   }
@@ -245,6 +240,7 @@ async function submitForm(): Promise<void> {
     name: form.name.trim(),
     description: form.description.trim(),
     enabled: form.enabled,
+    tagId: form.tagId,
   }
 
   const action = isEditMode.value ? actions.update : actions.create
@@ -255,18 +251,18 @@ async function submitForm(): Promise<void> {
     if (isEditMode.value) {
       replaceFlag(response.flag)
       hydrateForm(response.flag)
-      formNotice.value = { type: 'success', text: messages.updatedSuccess }
+      formNotice.value = { type: 'success', text: Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_UPDATED') }
     } else {
       flags.value = [response.flag, ...flags.value]
       modalMode.value = 'edit'
       hydrateForm(response.flag)
-      formNotice.value = { type: 'success', text: messages.createdSuccess }
+      formNotice.value = { type: 'success', text: Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ADDED') }
     }
 
     formErrors.value = []
     resetFieldErrors()
   } catch (error) {
-    const errorState = extractFormErrorState(error, messages.genericError)
+    const errorState = extractFormErrorState(error, Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ERROR'))
     formErrors.value = errorState.common
     applyFieldErrors(errorState.fields)
     formNotice.value = null
@@ -276,7 +272,7 @@ async function submitForm(): Promise<void> {
 }
 
 async function deleteCurrentFlag(): Promise<void> {
-  if (!isEditMode.value || isDeleting.value || !confirm(messages.deleteConfirm)) {
+  if (!isEditMode.value || isDeleting.value || !confirm(Loc('SHOLOKHOV_FEATUREFLAG_TAGS_CONFIRM_DELETE'))) {
     return
   }
 
@@ -287,9 +283,9 @@ async function deleteCurrentFlag(): Promise<void> {
     await runAction(actions.delete, { code: editingCode.value })
     flags.value = flags.value.filter((item) => item.code !== editingCode.value)
     closeModal(true)
-    showNotice('success', messages.deletedSuccess)
+    showNotice('success', Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_DELETED'))
   } catch (error) {
-    formErrors.value = extractErrorList(error, messages.genericError)
+    formErrors.value = extractErrorList(error, Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ERROR'))
   } finally {
     isDeleting.value = false
   }
@@ -309,9 +305,9 @@ async function toggleFlag(flag: FeatureFlagItem, value: boolean): Promise<void> 
     })
 
     replaceFlag(response.flag)
-    showNotice('success', messages.toggleSuccess)
+    showNotice('success', Loc('SHOLOKHOV_FEATUREFLAG_MSG_STATUS_UPDATED'))
   } catch (error) {
-    showNotice('error', extractErrorText(error, messages.genericError))
+    showNotice('error', extractErrorText(error, Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ERROR')))
   } finally {
     processingCodes.value = processingCodes.value.filter((item) => item !== flag.code)
   }
@@ -323,6 +319,7 @@ function hydrateForm(flag: FeatureFlagItem): void {
   form.name = flag.name
   form.description = flag.description
   form.enabled = flag.enabled
+  form.tagId = flag.tagId ? String(flag.tagId) : ''
   detailMeta.createdBy = flag.createdBy
   detailMeta.createdAt = flag.createdAt
   detailMeta.updatedAt = flag.updatedAt
@@ -333,6 +330,7 @@ function resetForm(): void {
   form.name = ''
   form.description = ''
   form.enabled = false
+  form.tagId = ''
 }
 
 function clearMeta(): void {
@@ -358,6 +356,7 @@ function resetFieldErrors(): void {
   fieldErrors.name = []
   fieldErrors.description = []
   fieldErrors.enabled = []
+  fieldErrors.tagId = []
 }
 
 function applyFieldErrors(errors: FieldErrors): void {
@@ -365,6 +364,7 @@ function applyFieldErrors(errors: FieldErrors): void {
   fieldErrors.name = [...errors.name]
   fieldErrors.description = [...errors.description]
   fieldErrors.enabled = [...errors.enabled]
+  fieldErrors.tagId = [...errors.tagId]
 }
 
 function showNotice(type: NoticeType, text: string): void {
@@ -376,13 +376,21 @@ function showNotice(type: NoticeType, text: string): void {
   }, 3500)
 }
 
+function openTagsPage(): void {
+  if (!urls.tagsPage) {
+    return
+  }
+
+  window.location.href = urls.tagsPage
+}
+
 function isProcessing(code: string): boolean {
   return processingCodes.value.includes(code)
 }
 
 async function runAction<T>(action: string, data: Record<string, unknown> = {}): Promise<T> {
   if (!action || typeof BX?.ajax?.runAction !== 'function') {
-    throw new Error(messages.genericError)
+    throw new Error(Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MSG_ERROR'))
   }
 
   const response = await BX.ajax.runAction(action, { data })
@@ -426,6 +434,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
       name: [],
       description: [],
       enabled: [],
+      tagId: [],
     },
   }
 
@@ -446,6 +455,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
     && state.fields.name.length === 0
     && state.fields.description.length === 0
     && state.fields.enabled.length === 0
+    && state.fields.tagId.length === 0
   ) {
     state.common = extractErrorList(error, fallback)
   }
@@ -455,6 +465,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
   state.fields.name = Array.from(new Set(state.fields.name))
   state.fields.description = Array.from(new Set(state.fields.description))
   state.fields.enabled = Array.from(new Set(state.fields.enabled))
+  state.fields.tagId = Array.from(new Set(state.fields.tagId))
 
   return state
 }
@@ -484,6 +495,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   if (code.includes('ENABLED')) {
     return 'enabled'
   }
+  if (code.includes('TAG_ID') || code.includes('TAGID') || code.includes('TAG')) {
+    return 'tagId'
+  }
 
   const normalizedMessage = item.message.toLowerCase()
   if (normalizedMessage.includes('код') || normalizedMessage.includes('code')) {
@@ -497,6 +511,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   }
   if (normalizedMessage.includes('активн') || normalizedMessage.includes('enabled') || normalizedMessage.includes('статус')) {
     return 'enabled'
+  }
+  if (normalizedMessage.includes('тег') || normalizedMessage.includes('tag')) {
+    return 'tagId'
   }
 
   return null
@@ -520,7 +537,11 @@ function extractErrorField(customData: unknown): FormFieldKey | null {
     ? (data.customData as Record<string, unknown>).field
     : null)
 
-  if (candidate === 'code' || candidate === 'name' || candidate === 'description' || candidate === 'enabled') {
+  if (candidate === 'tag_id') {
+    return 'tagId'
+  }
+
+  if (candidate === 'code' || candidate === 'name' || candidate === 'description' || candidate === 'enabled' || candidate === 'tagId') {
     return candidate
   }
 
@@ -646,19 +667,24 @@ function extractErrorText(error: unknown, fallback: string): string {
   <section class="ff-app">
     <header class="ff-hero">
       <div class="ff-hero__content">
-        <p v-if="messages.subtitle" class="ff-hero__eyebrow">
-          {{ messages.subtitle }}
+        <p class="ff-hero__eyebrow">
+          {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_PAGE_SUBTITLE') }}
         </p>
         <div class="ff-hero__summary">
           <div>
             <div class="ff-hero__count">
               {{ totalFlags }}
             </div>
-            <div class="ff-hero__label">{{ messages.totalLabel }}</div>
+            <div class="ff-hero__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_TOTAL_LABEL') }}</div>
           </div>
-          <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
-            {{ messages.add }}
-          </button>
+          <div class="ff-actions__group">
+            <button type="button" class="ff-button ff-button--ghost" :disabled="!urls.tagsPage" @click="openTagsPage">
+              {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MANAGE') }}
+            </button>
+            <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
+              {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_ADD') }}
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -668,15 +694,8 @@ function extractErrorText(error: unknown, fallback: string): string {
     </div>
 
     <section class="ff-panel">
-      <div class="ff-panel__header">
-        <div>
-          <h2 class="ff-panel__title">{{ messages.panelTitle }}</h2>
-          <p class="ff-panel__caption">{{ messages.panelCaption }}</p>
-        </div>
-      </div>
-
       <div v-if="isListLoading" class="ff-state">
-        {{ messages.loading }}
+        {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOADING') }}
       </div>
 
       <div v-else-if="listError" class="ff-state ff-state--error">
@@ -685,10 +704,10 @@ function extractErrorText(error: unknown, fallback: string): string {
 
       <div v-else-if="flags.length === 0" class="ff-empty">
         <div class="ff-empty__title">
-          {{ messages.empty }}
+          {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOADING') }}
         </div>
         <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
-          {{ messages.add }}
+          {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_ADD') }}
         </button>
       </div>
 
@@ -696,11 +715,12 @@ function extractErrorText(error: unknown, fallback: string): string {
         <table class="ff-table">
           <thead>
             <tr>
-              <th>{{ messages.name }}</th>
-              <th>{{ messages.enabled }}</th>
-              <th>{{ messages.createdBy }}</th>
-              <th>{{ messages.createdAt }}</th>
-              <th>{{ messages.updatedAt }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_FIELD_NAME') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_NAME') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -710,7 +730,7 @@ function extractErrorText(error: unknown, fallback: string): string {
                   <button
                     type="button"
                     class="ff-flag-cell__title"
-                    :aria-label="messages.openDetail"
+                    :aria-label="Loc('SHOLOKHOV_FEATUREFLAG_TAGS_OPEN_DETAIL')"
                     @click="openEditModal(flag.code)"
                   >
                     {{ flag.name }}
@@ -719,7 +739,7 @@ function extractErrorText(error: unknown, fallback: string): string {
                     v-if="flag.description"
                     class="ff-tooltip"
                     :data-tooltip="flag.description"
-                    :aria-label="messages.hintLabel"
+                    :aria-label="Loc('SHOLOKHOV_FEATUREFLAG_HINT_LABEL')"
                     tabindex="0"
                   >
                     ?
@@ -729,12 +749,13 @@ function extractErrorText(error: unknown, fallback: string): string {
                   </div>
                 </div>
               </td>
+              <td>{{ flag?.tag?.name }}</td>
               <td>
                 <ToggleSwitch
                   :checked="flag.enabled"
                   :disabled="isProcessing(flag.code)"
-                  :label-on="messages.statusOn"
-                  :label-off="messages.statusOff"
+                  :label-on="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_ON')"
+                  :label-off="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')"
                   @change="toggleFlag(flag, $event)"
                 />
               </td>
@@ -746,7 +767,7 @@ function extractErrorText(error: unknown, fallback: string): string {
                 >
                   {{ flag.createdBy.title }}
                 </a>
-                <span v-else class="ff-muted">{{ messages.newFlagLabel }}</span>
+                <span v-else class="ff-muted">{{ Loc('SHOLOKHOV_FEATUREFLAG_NEW_FLAG_LABEL') }}</span>
               </td>
               <td class="ff-nowrap">{{ flag.createdAt }}</td>
               <td class="ff-nowrap">{{ flag.updatedAt }}</td>
@@ -770,13 +791,13 @@ function extractErrorText(error: unknown, fallback: string): string {
                 {{ modalTitle }}
               </h3>
             </div>
-            <button type="button" class="ff-icon-button" :aria-label="messages.closeLabel" @click="dismissModal">
+            <button type="button" class="ff-icon-button" :aria-label="Loc('SHOLOKHOV_FEATUREFLAG_TAGS_CLOSE_LABEL')" @click="dismissModal">
               ×
             </button>
           </div>
 
           <div v-if="isModalLoading" class="ff-state">
-            {{ messages.loading }}
+            {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOADING') }}
           </div>
 
           <form v-else class="ff-form" @submit.prevent="submitForm">
@@ -791,33 +812,35 @@ function extractErrorText(error: unknown, fallback: string): string {
             </div>
 
             <div class="ff-form__grid">
-              <label class="ff-field">
-                <span class="ff-field__label">{{ messages.name }}</span>
-                <input
-                  v-model="form.name"
-                  type="text"
-                  :class="['ff-input', 'ff-input--main', { 'is-invalid': fieldErrors.name.length > 0 }]"
-                  :placeholder="messages.namePlaceholder"
-                  :aria-invalid="fieldErrors.name.length > 0 ? 'true' : 'false'"
-                />
-                <div v-if="fieldErrors.name.length" class="ff-field-errors">
-                  <div v-for="(error, index) in fieldErrors.name" :key="`name-${index}-${error}`">
+              <div class="ff-field">
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED') }}</span>
+                <div class="ff-field__value">
+                  <ToggleSwitch
+                      :checked="form.enabled"
+                      :disabled="isSaving || isDeleting"
+                      :label-on="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_ON')"
+                      :label-off="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')"
+                      @change="form.enabled = $event"
+                  />
+                </div>
+                <div v-if="fieldErrors.enabled.length" class="ff-field-errors">
+                  <div v-for="(error, index) in fieldErrors.enabled" :key="`enabled-${index}-${error}`">
                     {{ error }}
                   </div>
                 </div>
-              </label>
+              </div>
 
               <div class="ff-field">
-                <span class="ff-field__label">{{ messages.code }}</span>
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CODE') }}</span>
                 <input
-                  v-if="!isEditMode"
-                  v-model="form.code"
-                  type="text"
-                  class="ff-input ff-input--code"
-                  :placeholder="messages.codePlaceholder"
-                  autocapitalize="off"
-                  autocomplete="off"
-                  spellcheck="false"
+                    v-if="!isEditMode"
+                    v-model="form.code"
+                    type="text"
+                    class="ff-input ff-input--code"
+                    :placeholder="Loc('SHOLOKHOV_FEATUREFLAG_CODE_PLACEHOLDER')"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    spellcheck="false"
                 />
                 <div v-else class="ff-field__value ff-field__value--mono">
                   {{ editingCode }}
@@ -829,31 +852,48 @@ function extractErrorText(error: unknown, fallback: string): string {
                 </div>
               </div>
 
-              <div class="ff-field">
-                <span class="ff-field__label">{{ messages.enabled }}</span>
-                <div class="ff-field__value">
-                  <ToggleSwitch
-                    :checked="form.enabled"
-                    :disabled="isSaving || isDeleting"
-                    :label-on="messages.statusOn"
-                    :label-off="messages.statusOff"
-                    @change="form.enabled = $event"
-                  />
+              <label class="ff-field">
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_FIELD_NAME') }}</span>
+                <input
+                  v-model="form.name"
+                  type="text"
+                  :class="['ff-input', 'ff-input--main', { 'is-invalid': fieldErrors.name.length > 0 }]"
+                  :placeholder="Loc('SHOLOKHOV_FEATUREFLAG_TAGS_NAME_PLACEHOLDER')"
+                  :aria-invalid="fieldErrors.name.length > 0 ? 'true' : 'false'"
+                />
+                <div v-if="fieldErrors.name.length" class="ff-field-errors">
+                  <div v-for="(error, index) in fieldErrors.name" :key="`name-${index}-${error}`">
+                    {{ error }}
+                  </div>
                 </div>
-                <div v-if="fieldErrors.enabled.length" class="ff-field-errors">
-                  <div v-for="(error, index) in fieldErrors.enabled" :key="`enabled-${index}-${error}`">
+              </label>
+
+              <div class="ff-field">
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_TAG') }}</span>
+                <select
+                  v-model="form.tagId"
+                  :class="['ff-select', { 'is-invalid': fieldErrors.tagId.length > 0 }]"
+                  :disabled="isSaving || isDeleting"
+                >
+                  <option value="">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAG_WITHOUT') }}</option>
+                  <option v-for="tagItem in tags" :key="tagItem.id" :value="String(tagItem.id)">
+                    {{ tagItem.name }}
+                  </option>
+                </select>
+                <div v-if="fieldErrors.tagId.length" class="ff-field-errors">
+                  <div v-for="(error, index) in fieldErrors.tagId" :key="`tagId-${index}-${error}`">
                     {{ error }}
                   </div>
                 </div>
               </div>
 
               <label class="ff-field ff-field--full">
-                <span class="ff-field__label">{{ messages.description }}</span>
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION') }}</span>
                 <textarea
                   v-model="form.description"
                   :class="['ff-textarea', 'ff-textarea--main', { 'is-invalid': fieldErrors.description.length > 0 }]"
                   rows="5"
-                  :placeholder="messages.descriptionPlaceholder"
+                  :placeholder="Loc('SHOLOKHOV_FEATUREFLAG_DESCRIPTION_PLACEHOLDER')"
                   :aria-invalid="fieldErrors.description.length > 0 ? 'true' : 'false'"
                 ></textarea>
                 <div v-if="fieldErrors.description.length" class="ff-field-errors">
@@ -866,7 +906,7 @@ function extractErrorText(error: unknown, fallback: string): string {
 
             <div v-if="isEditMode" class="ff-meta">
               <div class="ff-meta__item">
-                <span class="ff-field__label">{{ messages.createdBy }}</span>
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY') }}</span>
                 <a
                   v-if="detailMeta.createdBy.url"
                   class="ff-user-link"
@@ -874,14 +914,14 @@ function extractErrorText(error: unknown, fallback: string): string {
                 >
                   {{ detailMeta.createdBy.title }}
                 </a>
-                <span v-else class="ff-field__value">{{ detailMeta.createdBy.title || messages.newFlagLabel }}</span>
+                <span v-else class="ff-field__value">{{ detailMeta.createdBy.title || Loc('SHOLOKHOV_FEATUREFLAG_NEW_FLAG_LABEL') }}</span>
               </div>
               <div class="ff-meta__item">
-                <span class="ff-field__label">{{ messages.createdAt }}</span>
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT') }}</span>
                 <span class="ff-field__value">{{ detailMeta.createdAt }}</span>
               </div>
               <div class="ff-meta__item">
-                <span class="ff-field__label">{{ messages.updatedAt }}</span>
+                <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT') }}</span>
                 <span class="ff-field__value">{{ detailMeta.updatedAt }}</span>
               </div>
             </div>
@@ -895,7 +935,7 @@ function extractErrorText(error: unknown, fallback: string): string {
                   :disabled="isSaving || isDeleting"
                   @click="deleteCurrentFlag"
                 >
-                  {{ messages.delete }}
+                  {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_DELETE') }}
                 </button>
               </div>
               <div class="ff-actions__group">
@@ -905,14 +945,14 @@ function extractErrorText(error: unknown, fallback: string): string {
                   :disabled="isSaving || isDeleting"
                   @click="dismissModal"
                 >
-                  {{ messages.cancel }}
+                  {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_CANCEL') }}
                 </button>
                 <button
                   type="submit"
                   class="ff-button ff-button--primary"
                   :disabled="isSaving || isDeleting"
                 >
-                  {{ messages.save }}
+                  {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_SAVE') }}
                 </button>
               </div>
             </div>

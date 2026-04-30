@@ -7,6 +7,9 @@ use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
 use Sholokhov\Featureflag\Http\Request\FeatureCodeRequest;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
 use Sholokhov\Featureflag\Http\Request\FeatureUpsertRequest;
+use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
+use Sholokhov\Featureflag\Http\Request\TagIdRequest;
+use Sholokhov\Featureflag\Http\Request\TagUpdateRequest;
 use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
 use Sholokhov\Featureflag\ServiceProvider;
 
@@ -42,6 +45,10 @@ final class FeatureFlag extends Controller
             'update' => $config,
             'delete' => $config,
             'toggle' => $config,
+            'tagList' => $config,
+            'tagCreate' => $config,
+            'tagUpdate' => $config,
+            'tagDelete' => $config,
         ];
     }
 
@@ -75,6 +82,21 @@ final class FeatureFlag extends Controller
             new ValidationParameter(
                 FeatureToggleRequest::class,
                 static fn() => FeatureToggleRequest::fromRequest($request),
+                $addValidationErrors,
+            ),
+            new ValidationParameter(
+                TagCreateRequest::class,
+                static fn() => TagCreateRequest::fromRequest($request),
+                $addValidationErrors,
+            ),
+            new ValidationParameter(
+                TagUpdateRequest::class,
+                static fn() => TagUpdateRequest::fromRequest($request),
+                $addValidationErrors,
+            ),
+            new ValidationParameter(
+                TagIdRequest::class,
+                static fn() => TagIdRequest::fromRequest($request),
                 $addValidationErrors,
             ),
         ];
@@ -125,7 +147,13 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->create($request->code, $request->name, $request->description, (bool)$request->enabled),
+            $service->create(
+                $request->code,
+                $request->name,
+                $request->description,
+                (bool)$request->enabled,
+                $request->tagId,
+            ),
         );
     }
 
@@ -143,7 +171,13 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->update($request->code, $request->name, $request->description, (bool)$request->enabled),
+            $service->update(
+                $request->code,
+                $request->name,
+                $request->description,
+                (bool)$request->enabled,
+                $request->tagId,
+            ),
         );
     }
 
@@ -180,6 +214,73 @@ final class FeatureFlag extends Controller
 
         return $this->resolveServiceResult(
             $service->toggle($request->code, (bool)$request->enabled),
+        );
+    }
+
+    /**
+     * Возвращает список тегов фича-флагов.
+     *
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function tagListAction(AdminFeatureFlagServiceInterface $service): ?array
+    {
+        return $this->resolveServiceResult(
+            $service->tagList(),
+        );
+    }
+
+    /**
+     * Создаёт тег.
+     *
+     * @param TagCreateRequest|null $request
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function tagCreateAction(?TagCreateRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    {
+        if ($request === null) {
+            return null;
+        }
+
+        return $this->resolveServiceResult(
+            $service->tagCreate($request->name),
+        );
+    }
+
+    /**
+     * Обновляет тег.
+     *
+     * @param TagUpdateRequest|null $request
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function tagUpdateAction(?TagUpdateRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    {
+        if ($request === null) {
+            return null;
+        }
+
+        return $this->resolveServiceResult(
+            $service->tagUpdate($request->id, $request->name),
+        );
+    }
+
+    /**
+     * Удаляет тег.
+     *
+     * @param TagIdRequest|null $request
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function tagDeleteAction(?TagIdRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    {
+        if ($request === null) {
+            return null;
+        }
+
+        return $this->resolveServiceResult(
+            $service->tagDelete($request->id),
         );
     }
 

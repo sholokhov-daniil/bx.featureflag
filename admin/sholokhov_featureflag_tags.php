@@ -16,7 +16,7 @@ if (!$USER->isAdmin()) {
     $APPLICATION->AuthForm(Loc::getMessage('ACCESS_DENIED'));
 }
 
-$APPLICATION->SetTitle(Loc::getMessage('SHOLOKHOV_FEATUREFLAG_PAGE_TITLE'));
+$APPLICATION->SetTitle(Loc::getMessage('SHOLOKHOV_FEATUREFLAG_TAGS_PAGE_TITLE'));
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_admin_after.php';
 
@@ -33,19 +33,16 @@ if (!Loader::includeModule('sholokhov.featureflag')) {
 Extension::load('sholokhov.featureflag-admin');
 
 $bootstrap = [
-    'view' => 'flags',
+    'view' => 'tags',
     'langId' => LANGUAGE_ID,
     'urls' => [
-        'tagsPage' => '/bitrix/admin/sholokhov_featureflag_tags.php?lang=' . rawurlencode(LANGUAGE_ID),
+        'flagsPage' => '/bitrix/admin/sholokhov_featureflag_list.php?lang=' . rawurlencode(LANGUAGE_ID),
     ],
     'actions' => [
-        'list' => 'sholokhov:featureflag.FeatureFlag.list',
-        'get' => 'sholokhov:featureflag.FeatureFlag.get',
-        'create' => 'sholokhov:featureflag.FeatureFlag.create',
-        'update' => 'sholokhov:featureflag.FeatureFlag.update',
-        'delete' => 'sholokhov:featureflag.FeatureFlag.delete',
-        'toggle' => 'sholokhov:featureflag.FeatureFlag.toggle',
         'tagList' => 'sholokhov:featureflag.FeatureFlag.tagList',
+        'tagCreate' => 'sholokhov:featureflag.FeatureFlag.tagCreate',
+        'tagUpdate' => 'sholokhov:featureflag.FeatureFlag.tagUpdate',
+        'tagDelete' => 'sholokhov:featureflag.FeatureFlag.tagDelete',
     ],
 ];
 ?>
