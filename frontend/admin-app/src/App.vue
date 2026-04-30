@@ -123,7 +123,7 @@ const detailMeta = reactive({
 })
 
 const isEditMode = computed(() => modalMode.value === 'edit')
-const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_TAGS_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_TAGS_POPUP_CREATE_TITLE'))
+const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
 
 void loadFlags()
@@ -668,21 +668,21 @@ function extractErrorText(error: unknown, fallback: string): string {
     <header class="ff-hero">
       <div class="ff-hero__content">
         <p class="ff-hero__eyebrow">
-          {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_PAGE_SUBTITLE') }}
+          {{ Loc('SHOLOKHOV_FEATUREFLAG_PAGE_SUBTITLE') }}
         </p>
         <div class="ff-hero__summary">
           <div>
             <div class="ff-hero__count">
               {{ totalFlags }}
             </div>
-            <div class="ff-hero__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_TOTAL_LABEL') }}</div>
+            <div class="ff-hero__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TOTAL_LABEL') }}</div>
           </div>
           <div class="ff-actions__group">
             <button type="button" class="ff-button ff-button--ghost" :disabled="!urls.tagsPage" @click="openTagsPage">
               {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MANAGE') }}
             </button>
             <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
-              {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_ADD') }}
+              {{ Loc('SHOLOKHOV_FEATUREFLAG_BTN_ADD') }}
             </button>
           </div>
         </div>
@@ -707,7 +707,7 @@ function extractErrorText(error: unknown, fallback: string): string {
           {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOADING') }}
         </div>
         <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
-          {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_ADD') }}
+          {{ Loc('SHOLOKHOV_FEATUREFLAG_BTN_ADD') }}
         </button>
       </div>
 
