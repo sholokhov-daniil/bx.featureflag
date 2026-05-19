@@ -54,6 +54,7 @@ final class IpRangeStrategy extends AbstractStrategy
                 'label' => 'IP от',
                 'placeholder' => '10.0.0.1',
                 'required' => true,
+                'mask' => 'ipv4',
             ],
             [
                 'code' => 'to',
@@ -61,6 +62,7 @@ final class IpRangeStrategy extends AbstractStrategy
                 'label' => 'IP до',
                 'placeholder' => '10.0.0.255',
                 'required' => true,
+                'mask' => 'ipv4',
             ],
         ];
     }

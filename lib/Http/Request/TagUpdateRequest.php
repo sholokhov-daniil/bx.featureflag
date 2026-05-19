@@ -15,7 +15,6 @@ final class TagUpdateRequest
     /**
      * @param string $id Идентификатор тега.
      * @param string $name Название тега.
-     * @param mixed $strategies Стратегии доступа, наследуемые флагами тега.
      */
     public function __construct(
         #[NotEmpty(errorMessage: 'Не заполнен идентификатор тега')]
@@ -25,7 +24,6 @@ final class TagUpdateRequest
         #[NotEmpty(errorMessage: 'Не заполнено название тега')]
         #[Length(max: 255, errorMessage: 'Название тега не должно быть длиннее 255 символов')]
         public readonly string $name,
-        public readonly mixed $strategies,
     ) {
     }
 
@@ -40,7 +38,6 @@ final class TagUpdateRequest
         return new self(
             id: trim((string)$request->get('id')),
             name: trim((string)$request->get('name')),
-            strategies: $request->get('strategies'),
         );
     }
 }

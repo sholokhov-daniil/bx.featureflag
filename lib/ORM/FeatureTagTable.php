@@ -7,16 +7,12 @@ use Bitrix\Main\ORM\Fields;
 
 /**
  * ORM таблица тегов фича-флагов.
- *
- * Тег может хранить общие стратегии доступа, которые наследуются
- * всеми фича-флагами с этим тегом.
  */
 final class FeatureTagTable extends DataManager
 {
     public const string FIELD_ID = 'ID';
     public const string FIELD_NAME = 'NAME';
     public const string FIELD_SORT = 'SORT';
-    public const string FIELD_STRATEGIES = 'STRATEGIES';
 
     /**
      * Возвращает имя таблицы тегов фича-флагов.
@@ -45,8 +41,6 @@ final class FeatureTagTable extends DataManager
                 ->configureUnique(),
             (new Fields\IntegerField(self::FIELD_SORT))
                 ->configureDefaultValue(500),
-            (new Fields\TextField(self::FIELD_STRATEGIES))
-                ->configureDefaultValue(''),
         ];
     }
 }

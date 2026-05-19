@@ -118,6 +118,10 @@
   width: 100%;
 }
 
+.ff-table--tags {
+  min-width: 420px;
+}
+
 .ff-table th,
 .ff-table td {
   border-bottom: 1px solid #edf2f8;
@@ -595,6 +599,10 @@
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ff-strategy-row__field--wide {
+  grid-column: 1 / -1;
 }
 
 .ff-input,

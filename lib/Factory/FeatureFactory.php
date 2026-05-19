@@ -6,7 +6,6 @@ use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\FeatureFlag;
 use Sholokhov\Featureflag\ORM\FeatureTable;
-use Sholokhov\Featureflag\ORM\FeatureTagTable;
 use Sholokhov\Featureflag\RuleInterface;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\Strategy\StoredStrategyRule;
@@ -26,13 +25,6 @@ use Psr\Container\NotFoundExceptionInterface;
  */
 class FeatureFactory implements FeatureFactoryInterface
 {
-    /**
-     * Runtime-кеш стратегий тегов.
-     *
-     * @var array<int, array<int, array{type: string, config: array<string, mixed>}>>
-     */
-    private array $tagStrategiesCache = [];
-
     /**
      * Создаёт объект фича-флага на основе ORM-сущности
      *
@@ -76,10 +68,7 @@ class FeatureFactory implements FeatureFactoryInterface
     private function getRules(string $code, EntityObject $entity): array
     {
         $rules = ServiceProvider::getRuleRegistry()->getByCode($code);
-        $strategies = [
-            ...$this->getTagStrategies($entity),
-            ...$this->decodeStrategies((string)$entity->get(FeatureTable::FIELD_STRATEGIES)),
-        ];
+        $strategies = $this->decodeStrategies((string)$entity->get(FeatureTable::FIELD_STRATEGIES));
 
         if ($strategies !== []) {
             $rules[] = new StoredStrategyRule(
@@ -89,47 +78,6 @@ class FeatureFactory implements FeatureFactoryInterface
         }
 
         return $rules;
-    }
-
-    /**
-     * Возвращает стратегии доступа, настроенные на теге флага.
-     *
-     * @param EntityObject $entity ORM-сущность фича-флага
-     * @return array<int, array{type: string, config: array<string, mixed>}>
-     *
-     * @throws ArgumentException
-     * @throws SystemException
-     */
-    private function getTagStrategies(EntityObject $entity): array
-    {
-        $tagId = (int)$entity->get(FeatureTable::FIELD_TAG_ID);
-        if ($tagId <= 0) {
-            return [];
-        }
-
-        if (array_key_exists($tagId, $this->tagStrategiesCache)) {
-            return $this->tagStrategiesCache[$tagId];
-        }
-
-        try {
-            $row = FeatureTagTable::query()
-                ->setSelect([
-                    FeatureTagTable::FIELD_ID,
-                    FeatureTagTable::FIELD_STRATEGIES,
-                ])
-                ->where(FeatureTagTable::FIELD_ID, $tagId)
-                ->fetch();
-        } catch (\Throwable) {
-            $row = false;
-        }
-
-        if ($row === false) {
-            $this->tagStrategiesCache[$tagId] = [];
-            return [];
-        }
-
-        $this->tagStrategiesCache[$tagId] = $this->decodeStrategies((string)($row[FeatureTagTable::FIELD_STRATEGIES] ?? ''));
-        return $this->tagStrategiesCache[$tagId];
     }
 
     /**

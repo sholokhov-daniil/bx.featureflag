@@ -275,7 +275,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
                 FeatureTagTable::FIELD_ID,
                 FeatureTagTable::FIELD_NAME,
                 FeatureTagTable::FIELD_SORT,
-                FeatureTagTable::FIELD_STRATEGIES,
             ])
             ->setOrder([
                 FeatureTagTable::FIELD_SORT => 'ASC',
@@ -289,7 +288,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
                 fn(array $row): array => [
                     'id' => (int)($row[FeatureTagTable::FIELD_ID] ?? 0),
                     'name' => (string)($row[FeatureTagTable::FIELD_NAME] ?? ''),
-                    'strategies' => $this->decodeStrategies((string)($row[FeatureTagTable::FIELD_STRATEGIES] ?? '')),
                 ],
                 $rows,
             ),
@@ -299,7 +297,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function tagCreate(string $name, mixed $strategies = []): Result
+    public function tagCreate(string $name): Result
     {
         $result = new Result();
         if (!$this->ensureSchema($result)) {
@@ -307,15 +305,11 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         }
 
         $name = trim($name);
-        $strategiesResult = $this->normalizeStrategies($strategies);
 
         $this->validateTagName($result, $name);
-        $this->appendResultErrors($result, $strategiesResult);
         if (!$result->isSuccess()) {
             return $result;
         }
-
-        $strategyItems = $strategiesResult->getData()['strategies'] ?? [];
 
         $existingByName = $this->findTagByName($name);
         if ($existingByName !== null) {
@@ -325,7 +319,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         $createResult = FeatureTagTable::add([
             FeatureTagTable::FIELD_NAME => $name,
-            FeatureTagTable::FIELD_STRATEGIES => $this->encodeStrategies($strategyItems),
         ]);
 
         if (!$createResult->isSuccess()) {
@@ -343,7 +336,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             'tag' => [
                 'id' => (int)$tag[FeatureTagTable::FIELD_ID],
                 'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
-                'strategies' => $this->decodeStrategies((string)($tag[FeatureTagTable::FIELD_STRATEGIES] ?? '')),
             ],
         ]);
     }
@@ -351,7 +343,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function tagUpdate(string $id, string $name, mixed $strategies = []): Result
+    public function tagUpdate(string $id, string $name): Result
     {
         $result = new Result();
         if (!$this->ensureSchema($result)) {
@@ -360,7 +352,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         $name = trim($name);
         $tagId = (int)$id;
-        $strategiesResult = $this->normalizeStrategies($strategies);
 
         if ($tagId <= 0) {
             $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
@@ -368,12 +359,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         }
 
         $this->validateTagName($result, $name);
-        $this->appendResultErrors($result, $strategiesResult);
         if (!$result->isSuccess()) {
             return $result;
         }
-
-        $strategyItems = $strategiesResult->getData()['strategies'] ?? [];
 
         $currentTag = $this->getTagRow($tagId, $result);
         if ($currentTag === null) {
@@ -388,7 +376,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         $updateResult = FeatureTagTable::update($tagId, [
             FeatureTagTable::FIELD_NAME => $name,
-            FeatureTagTable::FIELD_STRATEGIES => $this->encodeStrategies($strategyItems),
         ]);
 
         if (!$updateResult->isSuccess()) {
@@ -405,7 +392,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             'tag' => [
                 'id' => (int)$tag[FeatureTagTable::FIELD_ID],
                 'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
-                'strategies' => $this->decodeStrategies((string)($tag[FeatureTagTable::FIELD_STRATEGIES] ?? '')),
             ],
         ]);
     }
@@ -735,14 +721,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             $tagTableName = FeatureTagTable::getTableName();
             if (!$connection->isTableExists($tagTableName)) {
                 FeatureTagTable::getEntity()->createDbTable();
-            } else {
-                $tagFields = array_change_key_case($connection->getTableFields($tagTableName), CASE_UPPER);
-                if (!isset($tagFields[FeatureTagTable::FIELD_STRATEGIES])) {
-                    $sqlHelper = $connection->getSqlHelper();
-                    $tableSql = $sqlHelper->quote($tagTableName);
-                    $fieldSql = $sqlHelper->quote(FeatureTagTable::FIELD_STRATEGIES);
-                    $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} text NULL");
-                }
             }
 
             $featureTableName = FeatureTable::getTableName();
@@ -1036,7 +1014,6 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ->setSelect([
                 FeatureTagTable::FIELD_ID,
                 FeatureTagTable::FIELD_NAME,
-                FeatureTagTable::FIELD_STRATEGIES,
             ])
             ->where(FeatureTagTable::FIELD_ID, $tagId)
             ->fetch();

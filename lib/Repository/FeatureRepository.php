@@ -173,14 +173,6 @@ class FeatureRepository implements FeatureRepositoryInterface
         $tagTableName = FeatureTagTable::getTableName();
         if (!$connection->isTableExists($tagTableName)) {
             FeatureTagTable::getEntity()->createDbTable();
-            return;
-        }
-
-        $tagFields = array_change_key_case($connection->getTableFields($tagTableName), CASE_UPPER);
-        if (!isset($tagFields[FeatureTagTable::FIELD_STRATEGIES])) {
-            $tagTableSql = $sqlHelper->quote($tagTableName);
-            $fieldSql = $sqlHelper->quote(FeatureTagTable::FIELD_STRATEGIES);
-            $connection->queryExecute("ALTER TABLE {$tagTableSql} ADD {$fieldSql} text NULL");
         }
     }
 

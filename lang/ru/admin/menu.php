@@ -2,4 +2,3 @@
 
 $MESS['SHOLOKHOV_FEATUREFLAG_MENU_TITLE'] = 'Фича-флаги';
 $MESS['SHOLOKHOV_FEATUREFLAG_MENU_FLAGS'] = 'Управление флагами';
-$MESS['SHOLOKHOV_FEATUREFLAG_MENU_TAGS'] = 'Управление тегами';

@@ -2,7 +2,6 @@ import './assets/main.css'
 
 import { createApp } from 'vue'
 import App from './App.vue'
-import TagsApp from './TagsApp.vue'
 
 function mountApp(): void {
   const container = document.getElementById('sholokhov-featureflag-admin-app')
@@ -10,10 +9,7 @@ function mountApp(): void {
     return
   }
 
-  const view = window.SholokhovFeatureFlagAdmin?.view
-  const RootComponent = view === 'tags' ? TagsApp : App
-
-  createApp(RootComponent).mount(container)
+  createApp(App).mount(container)
 }
 
 if (document.readyState === 'loading') {

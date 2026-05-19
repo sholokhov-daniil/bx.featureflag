@@ -54,6 +54,7 @@ final class IpListStrategy extends AbstractStrategy
                 'label' => 'IP-адреса',
                 'placeholder' => '127.0.0.1, 10.0.0.5',
                 'required' => true,
+                'mask' => 'ipv4_list',
             ],
         ];
     }

@@ -78,20 +78,18 @@ interface AdminFeatureFlagServiceInterface
      * Создаёт новый тег.
      *
      * @param string $name
-     * @param mixed $strategies
      * @return Result{tag: array<string, mixed>}
      */
-    public function tagCreate(string $name, mixed $strategies = []): Result;
+    public function tagCreate(string $name): Result;
 
     /**
      * Обновляет существующий тег.
      *
      * @param string $id
      * @param string $name
-     * @param mixed $strategies
      * @return Result{tag: array<string, mixed>}
      */
-    public function tagUpdate(string $id, string $name, mixed $strategies = []): Result;
+    public function tagUpdate(string $id, string $name): Result;
 
     /**
      * Удаляет тег.

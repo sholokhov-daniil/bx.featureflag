@@ -13,13 +13,11 @@ final class TagCreateRequest
 {
     /**
      * @param string $name Название тега.
-     * @param mixed $strategies Стратегии доступа, наследуемые флагами тега.
      */
     public function __construct(
         #[NotEmpty(errorMessage: 'Не заполнено название тега')]
         #[Length(max: 255, errorMessage: 'Название тега не должно быть длиннее 255 символов')]
         public readonly string $name,
-        public readonly mixed $strategies,
     ) {
     }
 
@@ -33,7 +31,6 @@ final class TagCreateRequest
     {
         return new self(
             name: trim((string)$request->get('name')),
-            strategies: $request->get('strategies'),
         );
     }
 }

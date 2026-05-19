@@ -4,33 +4,6 @@ import { computed, reactive, ref } from 'vue'
 interface TagItem {
   id: number
   name: string
-  strategies: TagStrategyItem[]
-}
-
-interface TagStrategyItem {
-  type: string
-  config: Record<string, unknown>
-}
-
-interface TagStrategyFormItem {
-  uid: string
-  type: string
-  config: Record<string, string>
-}
-
-interface StrategyField {
-  code: string
-  type: 'text' | 'textarea'
-  label: string
-  placeholder?: string
-  required?: boolean
-}
-
-interface StrategyTypeItem {
-  code: string
-  name: string
-  description: string
-  fields: StrategyField[]
 }
 
 interface BootstrapConfig {
@@ -44,17 +17,15 @@ interface ActionConfig {
   tagCreate: string
   tagUpdate: string
   tagDelete: string
-  strategyList: string
 }
 
 type NoticeType = 'success' | 'error'
 type ModalMode = 'create' | 'edit'
-type TagFieldKey = 'id' | 'name' | 'strategies'
+type TagFieldKey = 'id' | 'name'
 
 interface FieldErrors {
   id: string[]
   name: string[]
-  strategies: string[]
 }
 
 interface FormErrorState {
@@ -67,6 +38,14 @@ interface UiErrorItem {
   code?: string | number
   customData?: unknown
 }
+
+const props = defineProps<{
+  embedded?: boolean
+}>()
+
+const emit = defineEmits<{
+  back: []
+}>()
 
 const bootstrap: BootstrapConfig = window.SholokhovFeatureFlagAdmin ?? {
   actions: {},
@@ -97,10 +76,6 @@ const messages = {
   totalLabel: 'Тегов в системе',
   namePlaceholder: 'Например, Checkout',
   goToFlags: 'К фича-флагам',
-  strategiesTitle: 'Стратегии доступа',
-  strategiesAll: 'Для всех флагов с тегом',
-  strategyAdd: 'Добавить стратегию',
-  strategyRemove: 'Удалить стратегию',
   ...bootstrap.messages,
 }
 
@@ -108,16 +83,16 @@ const urls = {
   flagsPage: bootstrap.urls?.flagsPage ?? '',
 }
 
+const canGoToFlags = computed(() => props.embedded || Boolean(urls.flagsPage))
+
 const actions: ActionConfig = {
   tagList: bootstrap.actions.tagList ?? '',
   tagCreate: bootstrap.actions.tagCreate ?? '',
   tagUpdate: bootstrap.actions.tagUpdate ?? '',
   tagDelete: bootstrap.actions.tagDelete ?? '',
-  strategyList: bootstrap.actions.strategyList ?? '',
 }
 
 const tags = ref<TagItem[]>([])
-const strategyTypes = ref<StrategyTypeItem[]>([])
 const isListLoading = ref(true)
 const isModalOpen = ref(false)
 const isSaving = ref(false)
@@ -126,23 +101,19 @@ const modalMode = ref<ModalMode>('create')
 const editingId = ref<number>(0)
 const listError = ref('')
 const formErrors = ref<string[]>([])
-const fieldErrors = reactive<FieldErrors>({ id: [], name: [], strategies: [] })
+const fieldErrors = reactive<FieldErrors>({ id: [], name: [] })
 const formNotice = ref<{ type: NoticeType; text: string } | null>(null)
 const notice = ref<{ type: NoticeType; text: string } | null>(null)
 
 const form = reactive({
   name: '',
-  strategies: [] as TagStrategyFormItem[],
 })
 
 const totalTags = computed(() => `${tags.value.length}`)
 const isEditMode = computed(() => modalMode.value === 'edit')
 const modalTitle = computed(() => (isEditMode.value ? messages.editTitle : messages.createTitle))
-const hasStrategyTypes = computed(() => strategyTypes.value.length > 0)
-let strategyUid = 0
 
 void loadTags()
-void loadStrategyTypes()
 
 async function loadTags(): Promise<void> {
   isListLoading.value = true
@@ -156,20 +127,6 @@ async function loadTags(): Promise<void> {
     showNotice('error', listError.value)
   } finally {
     isListLoading.value = false
-  }
-}
-
-async function loadStrategyTypes(): Promise<void> {
-  if (!actions.strategyList) {
-    strategyTypes.value = []
-    return
-  }
-
-  try {
-    const response = await runAction<{ items: StrategyTypeItem[] }>(actions.strategyList)
-    strategyTypes.value = response.items ?? []
-  } catch {
-    strategyTypes.value = []
   }
 }
 
@@ -187,7 +144,6 @@ function openEditModal(tag: TagItem): void {
   modalMode.value = 'edit'
   editingId.value = tag.id
   form.name = tag.name
-  form.strategies = (tag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
   resetFieldErrors()
   formErrors.value = []
   formNotice.value = null
@@ -220,22 +176,18 @@ async function submitForm(): Promise<void> {
       const response = await runAction<{ tag: TagItem }>(actions.tagUpdate, {
         id: editingId.value,
         name: form.name.trim(),
-        strategies: serializeStrategies(),
       })
       replaceTag(response.tag)
       form.name = response.tag.name
-      form.strategies = (response.tag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
       formNotice.value = { type: 'success', text: messages.updatedSuccess }
     } else {
       const response = await runAction<{ tag: TagItem }>(actions.tagCreate, {
         name: form.name.trim(),
-        strategies: serializeStrategies(),
       })
       tags.value = [response.tag, ...tags.value]
       modalMode.value = 'edit'
       editingId.value = response.tag.id
       form.name = response.tag.name
-      form.strategies = (response.tag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
       formNotice.value = { type: 'success', text: messages.createdSuccess }
     }
   } catch (error) {
@@ -243,7 +195,6 @@ async function submitForm(): Promise<void> {
     formErrors.value = errorState.common
     fieldErrors.id = [...errorState.fields.id]
     fieldErrors.name = [...errorState.fields.name]
-    fieldErrors.strategies = [...errorState.fields.strategies]
   } finally {
     isSaving.value = false
   }
@@ -270,98 +221,16 @@ async function deleteCurrentTag(): Promise<void> {
 }
 
 function goToFlags(): void {
+  if (props.embedded) {
+    emit('back')
+    return
+  }
+
   if (!urls.flagsPage) {
     return
   }
 
   window.location.href = urls.flagsPage
-}
-
-function addStrategy(): void {
-  const type = strategyTypes.value[0]?.code ?? ''
-  if (!type) {
-    return
-  }
-
-  form.strategies = [...form.strategies, createStrategyFormItem(type)]
-}
-
-function removeStrategy(index: number): void {
-  form.strategies = form.strategies.filter((_, itemIndex) => itemIndex !== index)
-}
-
-function changeStrategyType(strategy: TagStrategyFormItem): void {
-  strategy.config = createDefaultStrategyConfig(strategy.type)
-}
-
-function getStrategyType(code: string): StrategyTypeItem | null {
-  return strategyTypes.value.find((item) => item.code === code) ?? null
-}
-
-function getStrategyFields(code: string): StrategyField[] {
-  return getStrategyType(code)?.fields ?? []
-}
-
-function getStrategyLabel(code: string): string {
-  return getStrategyType(code)?.name ?? code
-}
-
-function createStrategyFormItem(type: string, config: Record<string, unknown> = {}): TagStrategyFormItem {
-  const normalizedConfig = createDefaultStrategyConfig(type)
-  const fields = getStrategyFields(type)
-
-  if (fields.length === 0) {
-    for (const [key, value] of Object.entries(config)) {
-      normalizedConfig[key] = formatStrategyConfigValue(value)
-    }
-  } else {
-    for (const field of fields) {
-      if (config[field.code] !== undefined) {
-        normalizedConfig[field.code] = formatStrategyConfigValue(config[field.code])
-      }
-    }
-  }
-
-  return {
-    uid: `tag-strategy-${++strategyUid}`,
-    type,
-    config: normalizedConfig,
-  }
-}
-
-function createDefaultStrategyConfig(type: string): Record<string, string> {
-  const config: Record<string, string> = {}
-
-  for (const field of getStrategyFields(type)) {
-    config[field.code] = ''
-  }
-
-  return config
-}
-
-function formatStrategyConfigValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item)).join('\n')
-  }
-
-  if (value === null || value === undefined) {
-    return ''
-  }
-
-  return String(value)
-}
-
-function serializeStrategies(): TagStrategyItem[] {
-  return form.strategies
-    .filter((strategy) => strategy.type !== '')
-    .map((strategy) => ({
-      type: strategy.type,
-      config: { ...strategy.config },
-    }))
-}
-
-function getTagStrategyLabels(tag: TagItem): string[] {
-  return (tag.strategies ?? []).map((strategy) => getStrategyLabel(strategy.type))
 }
 
 function replaceTag(tag: TagItem): void {
@@ -378,13 +247,11 @@ function replaceTag(tag: TagItem): void {
 
 function resetForm(): void {
   form.name = ''
-  form.strategies = []
 }
 
 function resetFieldErrors(): void {
   fieldErrors.id = []
   fieldErrors.name = []
-  fieldErrors.strategies = []
 }
 
 function showNotice(type: NoticeType, text: string): void {
@@ -418,7 +285,7 @@ async function runAction<T>(action: string, data: Record<string, unknown> = {}):
 function extractFormErrorState(error: unknown, fallback: string): FormErrorState {
   const state: FormErrorState = {
     common: [],
-    fields: { id: [], name: [], strategies: [] },
+    fields: { id: [], name: [] },
   }
 
   const items = collectErrorsFromPayload(error)
@@ -436,7 +303,6 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
     state.common.length === 0
     && state.fields.id.length === 0
     && state.fields.name.length === 0
-    && state.fields.strategies.length === 0
   ) {
     state.common = extractErrorList(error, fallback)
   }
@@ -444,7 +310,6 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
   state.common = Array.from(new Set(state.common))
   state.fields.id = Array.from(new Set(state.fields.id))
   state.fields.name = Array.from(new Set(state.fields.name))
-  state.fields.strategies = Array.from(new Set(state.fields.strategies))
 
   return state
 }
@@ -462,10 +327,6 @@ function detectFieldFromErrorItem(item: UiErrorItem): TagFieldKey | null {
   if (code.includes('NAME')) {
     return 'name'
   }
-  if (code.includes('STRATEG')) {
-    return 'strategies'
-  }
-
   const normalizedMessage = item.message.toLowerCase()
   if (normalizedMessage.includes('идентификатор') || normalizedMessage.includes(' id')) {
     return 'id'
@@ -473,10 +334,6 @@ function detectFieldFromErrorItem(item: UiErrorItem): TagFieldKey | null {
   if (normalizedMessage.includes('назван') || normalizedMessage.includes('name')) {
     return 'name'
   }
-  if (normalizedMessage.includes('стратег') || normalizedMessage.includes('strategy')) {
-    return 'strategies'
-  }
-
   return null
 }
 
@@ -495,10 +352,6 @@ function extractErrorField(customData: unknown): TagFieldKey | null {
 
   const data = customData as Record<string, unknown>
   const candidate = data.field ?? data.FIELD
-  if (candidate === 'strategy' || candidate === 'strategies') {
-    return 'strategies'
-  }
-
   if (candidate === 'id' || candidate === 'name') {
     return candidate
   }
@@ -650,7 +503,7 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
             <div class="ff-hero__label">{{ messages.totalLabel }}</div>
           </div>
           <div class="ff-actions__group">
-            <button type="button" class="ff-button ff-button--ghost" :disabled="!urls.flagsPage" @click="goToFlags">
+            <button type="button" class="ff-button ff-button--ghost" :disabled="!canGoToFlags" @click="goToFlags">
               {{ messages.goToFlags }}
             </button>
             <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
@@ -682,11 +535,10 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
         </button>
       </div>
       <div v-else class="ff-table-wrap">
-        <table class="ff-table">
+        <table class="ff-table ff-table--tags">
           <thead>
             <tr>
               <th>{{ messages.name }}</th>
-              <th>{{ messages.strategiesTitle }}</th>
             </tr>
           </thead>
           <tbody>
@@ -700,14 +552,6 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
                 >
                   {{ tag.name }}
                 </button>
-              </td>
-              <td>
-                <div v-if="getTagStrategyLabels(tag).length > 0" class="ff-strategy-tags">
-                  <span v-for="(label, index) in getTagStrategyLabels(tag)" :key="`${tag.id}-${index}-${label}`" class="ff-strategy-tag">
-                    {{ label }}
-                  </span>
-                </div>
-                <span v-else class="ff-muted">{{ messages.strategiesAll }}</span>
               </td>
             </tr>
           </tbody>
@@ -749,79 +593,6 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
                 <div v-for="(error, index) in fieldErrors.name" :key="`name-${index}-${error}`">{{ error }}</div>
               </div>
             </label>
-
-            <div class="ff-field ff-field--full ff-field--spaced">
-              <div class="ff-strategies-head">
-                <span class="ff-field__label">{{ messages.strategiesTitle }}</span>
-                <button
-                  type="button"
-                  class="ff-button ff-button--ghost ff-button--compact"
-                  :disabled="isSaving || isDeleting || !hasStrategyTypes"
-                  @click="addStrategy"
-                >
-                  {{ messages.strategyAdd }}
-                </button>
-              </div>
-
-              <div v-if="fieldErrors.strategies.length" class="ff-field-errors">
-                <div v-for="(error, index) in fieldErrors.strategies" :key="`strategies-${index}-${error}`">
-                  {{ error }}
-                </div>
-              </div>
-
-              <div v-if="form.strategies.length === 0" class="ff-strategies-empty">
-                {{ messages.strategiesAll }}
-              </div>
-
-              <div v-else class="ff-strategies-list">
-                <div v-for="(strategy, strategyIndex) in form.strategies" :key="strategy.uid" class="ff-strategy-row">
-                  <div class="ff-strategy-row__top">
-                    <select
-                      v-model="strategy.type"
-                      class="ff-select"
-                      :disabled="isSaving || isDeleting"
-                      @change="changeStrategyType(strategy)"
-                    >
-                      <option v-for="type in strategyTypes" :key="type.code" :value="type.code">
-                        {{ type.name }}
-                      </option>
-                    </select>
-
-                    <button
-                      type="button"
-                      class="ff-icon-button"
-                      :aria-label="messages.strategyRemove"
-                      :disabled="isSaving || isDeleting"
-                      @click="removeStrategy(strategyIndex)"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  <div class="ff-strategy-row__fields">
-                    <label v-for="field in getStrategyFields(strategy.type)" :key="`${strategy.uid}-${field.code}`" class="ff-field">
-                      <span class="ff-field__label">{{ field.label }}</span>
-                      <textarea
-                        v-if="field.type === 'textarea'"
-                        v-model="strategy.config[field.code]"
-                        class="ff-textarea ff-textarea--main ff-textarea--compact"
-                        rows="3"
-                        :placeholder="field.placeholder ?? ''"
-                        :disabled="isSaving || isDeleting"
-                      ></textarea>
-                      <input
-                        v-else
-                        v-model="strategy.config[field.code]"
-                        type="text"
-                        class="ff-input ff-input--main"
-                        :placeholder="field.placeholder ?? ''"
-                        :disabled="isSaving || isDeleting"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <div class="ff-actions">
               <div class="ff-actions__group">

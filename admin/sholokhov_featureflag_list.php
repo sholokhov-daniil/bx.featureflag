@@ -35,9 +35,6 @@ Extension::load('sholokhov.featureflag-admin');
 $bootstrap = [
     'view' => 'flags',
     'langId' => LANGUAGE_ID,
-    'urls' => [
-        'tagsPage' => '/bitrix/admin/sholokhov_featureflag_tags.php?lang=' . rawurlencode(LANGUAGE_ID),
-    ],
     'actions' => [
         'list' => 'sholokhov:featureflag.FeatureFlag.list',
         'get' => 'sholokhov:featureflag.FeatureFlag.get',
@@ -46,6 +43,9 @@ $bootstrap = [
         'delete' => 'sholokhov:featureflag.FeatureFlag.delete',
         'toggle' => 'sholokhov:featureflag.FeatureFlag.toggle',
         'tagList' => 'sholokhov:featureflag.FeatureFlag.tagList',
+        'tagCreate' => 'sholokhov:featureflag.FeatureFlag.tagCreate',
+        'tagUpdate' => 'sholokhov:featureflag.FeatureFlag.tagUpdate',
+        'tagDelete' => 'sholokhov:featureflag.FeatureFlag.tagDelete',
         'strategyList' => 'sholokhov:featureflag.FeatureFlag.strategyList',
     ],
 ];

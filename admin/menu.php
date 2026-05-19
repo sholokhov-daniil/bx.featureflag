@@ -24,11 +24,5 @@ return [
             'more_url' => ['sholokhov_featureflag_list.php'],
             'title' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MENU_FLAGS'),
         ],
-        [
-            'text' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MENU_TAGS'),
-            'url' => 'sholokhov_featureflag_tags.php?lang=' . LANGUAGE_ID,
-            'more_url' => ['sholokhov_featureflag_tags.php'],
-            'title' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MENU_TAGS'),
-        ],
     ],
 ];

@@ -247,7 +247,7 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->tagCreate($request->name, $request->strategies),
+            $service->tagCreate($request->name),
         );
     }
 
@@ -265,7 +265,7 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->tagUpdate($request->id, $request->name, $request->strategies),
+            $service->tagUpdate($request->id, $request->name),
         );
     }
 

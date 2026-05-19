@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { Loc } from '@/utils/localization.ts';
 import ToggleSwitch from './components/ToggleSwitch.vue'
+import TagsApp from './TagsApp.vue'
 
 interface FeatureFlagUser {
   id: number
@@ -53,7 +54,10 @@ interface StrategyField {
   label: string
   placeholder?: string
   required?: boolean
+  mask?: StrategyFieldMask
 }
+
+type StrategyFieldMask = 'ipv4' | 'ipv4_list'
 
 interface StrategyTypeItem {
   code: string
@@ -81,6 +85,7 @@ interface ActionConfig {
 type NoticeType = 'success' | 'error'
 type ModalMode = 'create' | 'edit'
 type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'strategies'
+type AdminView = 'flags' | 'tags'
 
 interface FieldErrors {
   code: string[]
@@ -101,10 +106,6 @@ const bootstrap: BootstrapConfig = window.SholokhovFeatureFlagAdmin ?? {
 }
 
 
-const urls = {
-  tagsPage: bootstrap.urls?.tagsPage ?? '',
-}
-
 const actions: ActionConfig = {
   list: bootstrap.actions.list ?? '',
   get: bootstrap.actions.get ?? '',
@@ -119,6 +120,7 @@ const actions: ActionConfig = {
 const flags = ref<FeatureFlagItem[]>([])
 const tags = ref<FeatureTagItem[]>([])
 const strategyTypes = ref<StrategyTypeItem[]>([])
+const currentView = ref<AdminView>('flags')
 const isListLoading = ref(true)
 const isModalOpen = ref(false)
 const isModalLoading = ref(false)
@@ -433,11 +435,12 @@ function showNotice(type: NoticeType, text: string): void {
 }
 
 function openTagsPage(): void {
-  if (!urls.tagsPage) {
-    return
-  }
+  currentView.value = 'tags'
+}
 
-  window.location.href = urls.tagsPage
+function openFlagsPage(): void {
+  currentView.value = 'flags'
+  void loadTags()
 }
 
 function addStrategy(): void {
@@ -521,6 +524,55 @@ function serializeStrategies(): FeatureFlagStrategyItem[] {
       type: strategy.type,
       config: { ...strategy.config },
     }))
+}
+
+function handleStrategyFieldInput(
+  event: Event,
+  strategy: FeatureFlagStrategyFormItem,
+  field: StrategyField,
+): void {
+  const target = event.target as HTMLInputElement | HTMLTextAreaElement | null
+  if (target === null) {
+    return
+  }
+
+  const value = applyStrategyFieldMask(target.value, field.mask)
+  if (target.value !== value) {
+    target.value = value
+  }
+
+  strategy.config[field.code] = value
+}
+
+function applyStrategyFieldMask(value: string, mask?: StrategyFieldMask): string {
+  if (mask === 'ipv4') {
+    return maskIpv4(value)
+  }
+
+  if (mask === 'ipv4_list') {
+    return value
+      .replace(/[^\d.,;\s]/g, '')
+      .replace(/\d[\d.]*/g, (part) => maskIpv4(part))
+  }
+
+  return value
+}
+
+function maskIpv4(value: string): string {
+  return value
+    .replace(/[^\d.]/g, '')
+    .split('.')
+    .slice(0, 4)
+    .map((part) => {
+      if (part === '') {
+        return ''
+      }
+
+      const limited = part.slice(0, 3)
+      const numeric = Number(limited)
+      return numeric > 255 ? '255' : limited
+    })
+    .join('.')
 }
 
 function getFlagStrategyLabels(flag: FeatureFlagItem): string[] {
@@ -820,7 +872,9 @@ function extractErrorText(error: unknown, fallback: string): string {
 </script>
 
 <template>
-  <section class="ff-app">
+  <TagsApp v-if="currentView === 'tags'" embedded @back="openFlagsPage" />
+
+  <section v-else class="ff-app">
     <header class="ff-hero">
       <div class="ff-hero__content">
         <p class="ff-hero__eyebrow">
@@ -834,7 +888,7 @@ function extractErrorText(error: unknown, fallback: string): string {
             <div class="ff-hero__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TOTAL_LABEL') }}</div>
           </div>
           <div class="ff-actions__group">
-            <button type="button" class="ff-button ff-button--ghost" :disabled="!urls.tagsPage" @click="openTagsPage">
+            <button type="button" class="ff-button ff-button--ghost" @click="openTagsPage">
               {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MANAGE') }}
             </button>
             <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
@@ -1117,7 +1171,11 @@ function extractErrorText(error: unknown, fallback: string): string {
                     </div>
 
                     <div class="ff-strategy-row__fields">
-                      <label v-for="field in getStrategyFields(strategy.type)" :key="`${strategy.uid}-${field.code}`" class="ff-field">
+                      <label
+                        v-for="field in getStrategyFields(strategy.type)"
+                        :key="`${strategy.uid}-${field.code}`"
+                        :class="['ff-field', { 'ff-strategy-row__field--wide': field.type === 'textarea' }]"
+                      >
                         <span class="ff-field__label">{{ field.label }}</span>
                         <textarea
                           v-if="field.type === 'textarea'"
@@ -1126,6 +1184,8 @@ function extractErrorText(error: unknown, fallback: string): string {
                           rows="3"
                           :placeholder="field.placeholder ?? ''"
                           :disabled="isSaving || isDeleting"
+                          :inputmode="field.mask ? 'decimal' : undefined"
+                          @input="handleStrategyFieldInput($event, strategy, field)"
                         ></textarea>
                         <input
                           v-else
@@ -1134,6 +1194,8 @@ function extractErrorText(error: unknown, fallback: string): string {
                           class="ff-input ff-input--main"
                           :placeholder="field.placeholder ?? ''"
                           :disabled="isSaving || isDeleting"
+                          :inputmode="field.mask ? 'decimal' : undefined"
+                          @input="handleStrategyFieldInput($event, strategy, field)"
                         />
                       </label>
                     </div>
