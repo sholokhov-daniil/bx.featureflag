@@ -789,3 +789,27 @@
     padding: 16px;
   }
 }
+
+.ff-row--expired {
+  background: rgba(255, 77, 79, 0.08);
+}
+
+.ff-row--expired:hover {
+  background: rgba(255, 77, 79, 0.14);
+}
+
+.ff-row--expired td:first-child {
+  border-left: 3px solid #ff4d4f;
+}
+
+.ff-row--today {
+  background: rgba(250, 173, 20, 0.08);
+}
+
+.ff-row--today:hover {
+  background: rgba(250, 173, 20, 0.14);
+}
+
+.ff-row--today td:first-child {
+  border-left: 3px solid #faad14;
+}

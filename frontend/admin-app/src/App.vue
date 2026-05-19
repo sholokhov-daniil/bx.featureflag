@@ -894,6 +894,42 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
   return unique
 }
 
+function getFlagRemovalState(flag: FeatureFlagItem): 'expired' | 'today' | null {
+  if (!flag.removePlannedAt) {
+    return null
+  }
+
+  const match = flag.removePlannedAt.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+
+  if (match === null) {
+    return null
+  }
+
+  const removeDate = new Date(
+      Number(match[3]),
+      Number(match[2]) - 1,
+      Number(match[1]),
+  )
+
+  const now = new Date()
+
+  removeDate.setHours(0, 0, 0, 0)
+  now.setHours(0, 0, 0, 0)
+
+  const removeTime = removeDate.getTime()
+  const currentTime = now.getTime()
+
+  if (removeTime < currentTime) {
+    return 'expired'
+  }
+
+  if (removeTime === currentTime) {
+    return 'today'
+  }
+
+  return null
+}
+
 function extractErrorText(error: unknown, fallback: string): string {
   return extractErrorList(error, fallback).join(' ')
 }
@@ -964,7 +1000,14 @@ function extractErrorText(error: unknown, fallback: string): string {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="flag in flags" :key="flag.code">
+            <tr
+                v-for="flag in flags"
+                :key="flag.code"
+                :class="{
+                  'ff-row--expired': getFlagRemovalState(flag) === 'expired',
+                  'ff-row--today': getFlagRemovalState(flag) === 'today',
+                }"
+            >
               <td>
                 <div class="ff-flag-cell">
                   <button
