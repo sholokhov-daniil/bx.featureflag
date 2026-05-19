@@ -8,6 +8,7 @@ use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\ORM\FeatureTable;
+use Sholokhov\Featureflag\ORM\FeatureTagTable;
 
 use Bitrix\Main\Error;
 use Bitrix\Main\DB\DuplicateEntryException;
@@ -122,6 +123,8 @@ class FeatureRepository implements FeatureRepositoryInterface
     private function load(): void
     {
         try {
+            $this->ensureSchema();
+
             $this->cache = [];
             $factory = ServiceProvider::getFeatureFactory();
 
@@ -136,6 +139,48 @@ class FeatureRepository implements FeatureRepositoryInterface
             }
         } catch (Throwable $exception) {
             AddMessage2Log('Ошибка загрузки флагов: ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * Доинициализирует новые поля при обновлении уже установленного модуля.
+     */
+    private function ensureSchema(): void
+    {
+        $connection = FeatureTable::getEntity()->getConnection();
+        $tableName = FeatureTable::getTableName();
+
+        if (!$connection->isTableExists($tableName)) {
+            FeatureTable::getEntity()->createDbTable();
+            return;
+        }
+
+        $fields = array_change_key_case($connection->getTableFields($tableName), CASE_UPPER);
+
+        $sqlHelper = $connection->getSqlHelper();
+        $tableSql = $sqlHelper->quote($tableName);
+
+        if (!isset($fields[FeatureTable::FIELD_TAG_ID])) {
+            $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
+            $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} int(11) NULL");
+        }
+
+        if (!isset($fields[FeatureTable::FIELD_STRATEGIES])) {
+            $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_STRATEGIES);
+            $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} text NULL");
+        }
+
+        $tagTableName = FeatureTagTable::getTableName();
+        if (!$connection->isTableExists($tagTableName)) {
+            FeatureTagTable::getEntity()->createDbTable();
+            return;
+        }
+
+        $tagFields = array_change_key_case($connection->getTableFields($tagTableName), CASE_UPPER);
+        if (!isset($tagFields[FeatureTagTable::FIELD_STRATEGIES])) {
+            $tagTableSql = $sqlHelper->quote($tagTableName);
+            $fieldSql = $sqlHelper->quote(FeatureTagTable::FIELD_STRATEGIES);
+            $connection->queryExecute("ALTER TABLE {$tagTableSql} ADD {$fieldSql} text NULL");
         }
     }
 

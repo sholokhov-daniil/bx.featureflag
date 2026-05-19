@@ -32,9 +32,10 @@ interface AdminFeatureFlagServiceInterface
      * @param string $description
      * @param mixed $enabled
      * @param string $tagId
+     * @param mixed $strategies
      * @return Result{flag: array<string, mixed>}
      */
-    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId): Result;
+    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result;
 
     /**
      * Обновляет существующий фича-флаг.
@@ -44,9 +45,10 @@ interface AdminFeatureFlagServiceInterface
      * @param string $description
      * @param mixed $enabled
      * @param string $tagId
+     * @param mixed $strategies
      * @return Result{flag: array<string, mixed>}
      */
-    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId): Result;
+    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result;
 
     /**
      * Удаляет фича-флаг.
@@ -76,18 +78,20 @@ interface AdminFeatureFlagServiceInterface
      * Создаёт новый тег.
      *
      * @param string $name
+     * @param mixed $strategies
      * @return Result{tag: array<string, mixed>}
      */
-    public function tagCreate(string $name): Result;
+    public function tagCreate(string $name, mixed $strategies = []): Result;
 
     /**
      * Обновляет существующий тег.
      *
      * @param string $id
      * @param string $name
+     * @param mixed $strategies
      * @return Result{tag: array<string, mixed>}
      */
-    public function tagUpdate(string $id, string $name): Result;
+    public function tagUpdate(string $id, string $name, mixed $strategies = []): Result;
 
     /**
      * Удаляет тег.
@@ -96,4 +100,11 @@ interface AdminFeatureFlagServiceInterface
      * @return Result{id: int}
      */
     public function tagDelete(string $id): Result;
+
+    /**
+     * Возвращает список зарегистрированных стратегий доступа.
+     *
+     * @return Result{items: array<int, array<string, mixed>>}
+     */
+    public function strategyList(): Result;
 }

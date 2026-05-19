@@ -10,15 +10,18 @@
 - хранение флагов в таблице `sholokhov_featureflag`
 - регистрация флагов из PHP-кода
 - проверка флагов через статический фасад
+- настройка стратегий доступа из UI
+- хранение стратегий доступа в БД
 - поддержка пользовательских runtime-правил через `RuleInterface`
+- поддержка пользовательских UI-стратегий через `FeatureStrategyInterface`
 - DI-регистрация сервисов через `.settings.php`
 
 ## Чего пока нет
 
 - rollout по проценту пользователей из коробки
-- готовых правил по пользователям, группам, сайтам
+- аудит изменений флагов
 
-Если эти возможности нужны, их нужно дописывать поверх текущего API.
+Процентный rollout можно добавить как пользовательскую стратегию.
 
 ## Системные требования
 
@@ -167,12 +170,28 @@ if (!$result->isSuccess()) {
 
 ## Как работает вычисление флага
 
-Флаг считается включённым, если одновременно выполняются два условия:
+Флаг считается включённым, если одновременно выполняются условия:
 
 1. В таблице `sholokhov_featureflag` у него `ENABLED = true`.
-2. Все зарегистрированные правила, которые поддерживают этот код, возвращают `true`.
+2. Флаг наследует стратегии доступа своего тега, если они настроены.
+3. Если у тега и флага нет стратегий доступа, флаг доступен для всех.
+4. Если стратегии есть, хотя бы одна сохранённая стратегия должна вернуть `true`.
+5. Все дополнительные runtime-правила, зарегистрированные через `RuleInterface`, должны вернуть `true`.
 
 Если флаг не найден или при чтении произошла ошибка, `Feature::isEnabled()` вернёт `false`.
+
+## Стратегии доступа из UI
+
+В административной части флага или тега можно настроить стратегии доступа. Стратегии тега наследуются всеми флагами с этим тегом. Из коробки доступны:
+
+- `ip_list` — ограничение для определённых IP
+- `ip_range` — ограничение по диапазону IP
+- `user_ids` — ограничение для определённых пользователей
+- `user_groups` — ограничение для определённых групп пользователей
+- `site_ids` — ограничение по ID сайта
+
+Стратегии одного флага работают по принципу OR: если совпала любая стратегия флага или его тега, сохранённые UI-ограничения пропускают пользователя. Это удобно для безопасного релиза: можно открыть фичу, например, либо офисному IP, либо группе тестировщиков.
+Сейчас UI поддерживает поля стратегий типов `text` и `textarea`.
 
 ## Пользовательские правила
 
@@ -228,6 +247,98 @@ ServiceProvider::getRuleRegistry()->register(
 
 Практически регистрацию правил имеет смысл делать в `init.php` проекта или в bootstrap вашего прикладного модуля.
 
+## Пользовательские стратегии для UI
+
+Если стратегия должна отображаться в админке, сохраняться в БД и участвовать в runtime-проверке, регистрируйте её через `StrategyRegistryInterface`.
+
+Создайте класс стратегии:
+
+```php
+<?php
+
+namespace Local\FeatureFlag;
+
+use Bitrix\Main\Error;
+use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Strategy\FeatureStrategyInterface;
+
+final class HeaderStrategy implements FeatureStrategyInterface
+{
+    public function getCode(): string
+    {
+        return 'header_value';
+    }
+
+    public function getName(): string
+    {
+        return 'HTTP-заголовок';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Включает флаг при совпадении значения HTTP-заголовка.';
+    }
+
+    public function getFields(): array
+    {
+        return [
+            [
+                'code' => 'name',
+                'type' => 'text',
+                'label' => 'Имя заголовка',
+                'placeholder' => 'X-Feature-Token',
+                'required' => true,
+            ],
+            [
+                'code' => 'value',
+                'type' => 'text',
+                'label' => 'Значение',
+                'placeholder' => 'beta',
+                'required' => true,
+            ],
+        ];
+    }
+
+    public function normalizeConfig(array $config): Result
+    {
+        $name = trim((string)($config['name'] ?? ''));
+        $value = trim((string)($config['value'] ?? ''));
+
+        if ($name === '' || $value === '') {
+            return (new Result())->addError(new Error('Заполните имя и значение заголовка'));
+        }
+
+        return (new Result())->setData([
+            'config' => [
+                'name' => $name,
+                'value' => $value,
+            ],
+        ]);
+    }
+
+    public function isEnabled(string $featureCode, array $config): bool
+    {
+        $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', (string)$config['name']));
+
+        return (string)($_SERVER[$serverKey] ?? '') === (string)$config['value'];
+    }
+}
+```
+
+Зарегистрируйте стратегию после подключения модуля, например в `init.php` или bootstrap вашего модуля:
+
+```php
+use Bitrix\Main\Loader;
+use Local\FeatureFlag\HeaderStrategy;
+use Sholokhov\Featureflag\ServiceProvider;
+
+Loader::includeModule('sholokhov.featureflag');
+
+ServiceProvider::getStrategyRegistry()->register(new HeaderStrategy());
+```
+
+После регистрации стратегия появится в форме флага. При сохранении модуль вызовет `normalizeConfig()`, положит нормализованную конфигурацию в поле `STRATEGIES`, а при `Feature::isEnabled()` вызовет `isEnabled()`.
+
 ## Изменение состояния флага
 
 В текущей версии изменение состояния и удаление доступны через фасад `Feature`:
@@ -255,14 +366,23 @@ Feature::unRegister('crm.application.v2');
 - `ENABLED` — признак активности
 - `NAME` — человекочитаемое имя
 - `DESCRIPTION` — описание
+- `TAG_ID` — идентификатор тега
+- `STRATEGIES` — JSON-конфигурация стратегий доступа
 - `DATE_CREATE`, `DATE_UPDATE`
 - `CREATED_BY`, `UPDATED_BY`
 
 Служебные поля выставляются автоматически через ORM-события `onBeforeAdd()` и `onBeforeUpdate()`.
 
+Таблица `sholokhov_featureflag_tags` содержит:
+
+- `ID` — первичный ключ тега
+- `NAME` — название тега
+- `SORT` — сортировка
+- `STRATEGIES` — JSON-конфигурация стратегий доступа, наследуемая флагами тега
+
 ## Ограничения текущей реализации
 
-- правила не хранятся в базе и живут только в runtime
+- runtime-правила `RuleInterface` не хранятся в базе и живут только в runtime
 - нет отдельного механизма миграций или seed-скриптов для флагов
 - документацию и bootstrap правил нужно поддерживать на уровне проекта
 

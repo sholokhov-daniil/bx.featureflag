@@ -21,9 +21,15 @@ interface FeatureFlagItem {
   enabled: boolean
   tagId: number | null
   tag: FeatureTagItem | null
+  strategies: FeatureFlagStrategyItem[]
   createdAt: string
   updatedAt: string
   createdBy: FeatureFlagUser
+}
+
+interface FeatureFlagStrategyItem {
+  type: string
+  config: Record<string, unknown>
 }
 
 interface FeatureFlagForm {
@@ -32,6 +38,28 @@ interface FeatureFlagForm {
   description: string
   enabled: boolean
   tagId: string
+  strategies: FeatureFlagStrategyFormItem[]
+}
+
+interface FeatureFlagStrategyFormItem {
+  uid: string
+  type: string
+  config: Record<string, string>
+}
+
+interface StrategyField {
+  code: string
+  type: 'text' | 'textarea'
+  label: string
+  placeholder?: string
+  required?: boolean
+}
+
+interface StrategyTypeItem {
+  code: string
+  name: string
+  description: string
+  fields: StrategyField[]
 }
 
 interface BootstrapConfig {
@@ -47,11 +75,12 @@ interface ActionConfig {
   delete: string
   toggle: string
   tagList: string
+  strategyList: string
 }
 
 type NoticeType = 'success' | 'error'
 type ModalMode = 'create' | 'edit'
-type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId'
+type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'strategies'
 
 interface FieldErrors {
   code: string[]
@@ -59,6 +88,7 @@ interface FieldErrors {
   description: string[]
   enabled: string[]
   tagId: string[]
+  strategies: string[]
 }
 
 interface FormErrorState {
@@ -83,10 +113,12 @@ const actions: ActionConfig = {
   delete: bootstrap.actions.delete ?? '',
   toggle: bootstrap.actions.toggle ?? '',
   tagList: bootstrap.actions.tagList ?? '',
+  strategyList: bootstrap.actions.strategyList ?? '',
 }
 
 const flags = ref<FeatureFlagItem[]>([])
 const tags = ref<FeatureTagItem[]>([])
+const strategyTypes = ref<StrategyTypeItem[]>([])
 const isListLoading = ref(true)
 const isModalOpen = ref(false)
 const isModalLoading = ref(false)
@@ -106,6 +138,7 @@ const fieldErrors = reactive<FieldErrors>({
   description: [],
   enabled: [],
   tagId: [],
+  strategies: [],
 })
 
 const form = reactive<FeatureFlagForm>({
@@ -114,6 +147,7 @@ const form = reactive<FeatureFlagForm>({
   description: '',
   enabled: false,
   tagId: '',
+  strategies: [],
 })
 
 const detailMeta = reactive({
@@ -125,9 +159,12 @@ const detailMeta = reactive({
 const isEditMode = computed(() => modalMode.value === 'edit')
 const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
+const hasStrategyTypes = computed(() => strategyTypes.value.length > 0)
+let strategyUid = 0
 
 void loadFlags()
 void loadTags()
+void loadStrategyTypes()
 
 async function loadFlags(): Promise<void> {
   isListLoading.value = true
@@ -155,6 +192,20 @@ async function loadTags(): Promise<void> {
     tags.value = response.items ?? []
   } catch {
     tags.value = []
+  }
+}
+
+async function loadStrategyTypes(): Promise<void> {
+  if (!actions.strategyList) {
+    strategyTypes.value = []
+    return
+  }
+
+  try {
+    const response = await runAction<{ items: StrategyTypeItem[] }>(actions.strategyList)
+    strategyTypes.value = response.items ?? []
+  } catch {
+    strategyTypes.value = []
   }
 }
 
@@ -241,6 +292,7 @@ async function submitForm(): Promise<void> {
     description: form.description.trim(),
     enabled: form.enabled,
     tagId: form.tagId,
+    strategies: serializeStrategies(),
   }
 
   const action = isEditMode.value ? actions.update : actions.create
@@ -320,6 +372,7 @@ function hydrateForm(flag: FeatureFlagItem): void {
   form.description = flag.description
   form.enabled = flag.enabled
   form.tagId = flag.tagId ? String(flag.tagId) : ''
+  form.strategies = (flag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
   detailMeta.createdBy = flag.createdBy
   detailMeta.createdAt = flag.createdAt
   detailMeta.updatedAt = flag.updatedAt
@@ -331,6 +384,7 @@ function resetForm(): void {
   form.description = ''
   form.enabled = false
   form.tagId = ''
+  form.strategies = []
 }
 
 function clearMeta(): void {
@@ -357,6 +411,7 @@ function resetFieldErrors(): void {
   fieldErrors.description = []
   fieldErrors.enabled = []
   fieldErrors.tagId = []
+  fieldErrors.strategies = []
 }
 
 function applyFieldErrors(errors: FieldErrors): void {
@@ -365,6 +420,7 @@ function applyFieldErrors(errors: FieldErrors): void {
   fieldErrors.description = [...errors.description]
   fieldErrors.enabled = [...errors.enabled]
   fieldErrors.tagId = [...errors.tagId]
+  fieldErrors.strategies = [...errors.strategies]
 }
 
 function showNotice(type: NoticeType, text: string): void {
@@ -382,6 +438,93 @@ function openTagsPage(): void {
   }
 
   window.location.href = urls.tagsPage
+}
+
+function addStrategy(): void {
+  const type = strategyTypes.value[0]?.code ?? ''
+  if (!type) {
+    return
+  }
+
+  form.strategies = [...form.strategies, createStrategyFormItem(type)]
+}
+
+function removeStrategy(index: number): void {
+  form.strategies = form.strategies.filter((_, itemIndex) => itemIndex !== index)
+}
+
+function changeStrategyType(strategy: FeatureFlagStrategyFormItem): void {
+  strategy.config = createDefaultStrategyConfig(strategy.type)
+}
+
+function getStrategyType(code: string): StrategyTypeItem | null {
+  return strategyTypes.value.find((item) => item.code === code) ?? null
+}
+
+function getStrategyFields(code: string): StrategyField[] {
+  return getStrategyType(code)?.fields ?? []
+}
+
+function getStrategyLabel(code: string): string {
+  return getStrategyType(code)?.name ?? code
+}
+
+function createStrategyFormItem(type: string, config: Record<string, unknown> = {}): FeatureFlagStrategyFormItem {
+  const normalizedConfig = createDefaultStrategyConfig(type)
+  const fields = getStrategyFields(type)
+
+  if (fields.length === 0) {
+    for (const [key, value] of Object.entries(config)) {
+      normalizedConfig[key] = formatStrategyConfigValue(value)
+    }
+  } else {
+    for (const field of fields) {
+      if (config[field.code] !== undefined) {
+        normalizedConfig[field.code] = formatStrategyConfigValue(config[field.code])
+      }
+    }
+  }
+
+  return {
+    uid: `strategy-${++strategyUid}`,
+    type,
+    config: normalizedConfig,
+  }
+}
+
+function createDefaultStrategyConfig(type: string): Record<string, string> {
+  const config: Record<string, string> = {}
+
+  for (const field of getStrategyFields(type)) {
+    config[field.code] = ''
+  }
+
+  return config
+}
+
+function formatStrategyConfigValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).join('\n')
+  }
+
+  if (value === null || value === undefined) {
+    return ''
+  }
+
+  return String(value)
+}
+
+function serializeStrategies(): FeatureFlagStrategyItem[] {
+  return form.strategies
+    .filter((strategy) => strategy.type !== '')
+    .map((strategy) => ({
+      type: strategy.type,
+      config: { ...strategy.config },
+    }))
+}
+
+function getFlagStrategyLabels(flag: FeatureFlagItem): string[] {
+  return (flag.strategies ?? []).map((strategy) => getStrategyLabel(strategy.type))
 }
 
 function isProcessing(code: string): boolean {
@@ -435,6 +578,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
       description: [],
       enabled: [],
       tagId: [],
+      strategies: [],
     },
   }
 
@@ -456,6 +600,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
     && state.fields.description.length === 0
     && state.fields.enabled.length === 0
     && state.fields.tagId.length === 0
+    && state.fields.strategies.length === 0
   ) {
     state.common = extractErrorList(error, fallback)
   }
@@ -466,6 +611,7 @@ function extractFormErrorState(error: unknown, fallback: string): FormErrorState
   state.fields.description = Array.from(new Set(state.fields.description))
   state.fields.enabled = Array.from(new Set(state.fields.enabled))
   state.fields.tagId = Array.from(new Set(state.fields.tagId))
+  state.fields.strategies = Array.from(new Set(state.fields.strategies))
 
   return state
 }
@@ -498,6 +644,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   if (code.includes('TAG_ID') || code.includes('TAGID') || code.includes('TAG')) {
     return 'tagId'
   }
+  if (code.includes('STRATEG')) {
+    return 'strategies'
+  }
 
   const normalizedMessage = item.message.toLowerCase()
   if (normalizedMessage.includes('код') || normalizedMessage.includes('code')) {
@@ -514,6 +663,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   }
   if (normalizedMessage.includes('тег') || normalizedMessage.includes('tag')) {
     return 'tagId'
+  }
+  if (normalizedMessage.includes('стратег') || normalizedMessage.includes('strategy')) {
+    return 'strategies'
   }
 
   return null
@@ -539,6 +691,10 @@ function extractErrorField(customData: unknown): FormFieldKey | null {
 
   if (candidate === 'tag_id') {
     return 'tagId'
+  }
+
+  if (candidate === 'strategy' || candidate === 'strategies') {
+    return 'strategies'
   }
 
   if (candidate === 'code' || candidate === 'name' || candidate === 'description' || candidate === 'enabled' || candidate === 'tagId') {
@@ -717,6 +873,7 @@ function extractErrorText(error: unknown, fallback: string): string {
             <tr>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_FIELD_NAME') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_NAME') }}</th>
+              <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_TITLE') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT') }}</th>
@@ -750,6 +907,14 @@ function extractErrorText(error: unknown, fallback: string): string {
                 </div>
               </td>
               <td>{{ flag?.tag?.name }}</td>
+              <td>
+                <div v-if="getFlagStrategyLabels(flag).length > 0" class="ff-strategy-tags">
+                  <span v-for="(label, index) in getFlagStrategyLabels(flag)" :key="`${flag.code}-${index}-${label}`" class="ff-strategy-tag">
+                    {{ label }}
+                  </span>
+                </div>
+                <span v-else class="ff-muted">{{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_ALL') }}</span>
+              </td>
               <td>
                 <ToggleSwitch
                   :checked="flag.enabled"
@@ -902,6 +1067,79 @@ function extractErrorText(error: unknown, fallback: string): string {
                   </div>
                 </div>
               </label>
+
+              <div class="ff-field ff-field--full">
+                <div class="ff-strategies-head">
+                  <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_TITLE') }}</span>
+                  <button
+                    type="button"
+                    class="ff-button ff-button--ghost ff-button--compact"
+                    :disabled="isSaving || isDeleting || !hasStrategyTypes"
+                    @click="addStrategy"
+                  >
+                    {{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGY_ADD') }}
+                  </button>
+                </div>
+
+                <div v-if="fieldErrors.strategies.length" class="ff-field-errors">
+                  <div v-for="(error, index) in fieldErrors.strategies" :key="`strategies-${index}-${error}`">
+                    {{ error }}
+                  </div>
+                </div>
+
+                <div v-if="form.strategies.length === 0" class="ff-strategies-empty">
+                  {{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_ALL') }}
+                </div>
+
+                <div v-else class="ff-strategies-list">
+                  <div v-for="(strategy, strategyIndex) in form.strategies" :key="strategy.uid" class="ff-strategy-row">
+                    <div class="ff-strategy-row__top">
+                      <select
+                        v-model="strategy.type"
+                        class="ff-select"
+                        :disabled="isSaving || isDeleting"
+                        @change="changeStrategyType(strategy)"
+                      >
+                        <option v-for="type in strategyTypes" :key="type.code" :value="type.code">
+                          {{ type.name }}
+                        </option>
+                      </select>
+
+                      <button
+                        type="button"
+                        class="ff-icon-button"
+                        :aria-label="Loc('SHOLOKHOV_FEATUREFLAG_STRATEGY_REMOVE')"
+                        :disabled="isSaving || isDeleting"
+                        @click="removeStrategy(strategyIndex)"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <div class="ff-strategy-row__fields">
+                      <label v-for="field in getStrategyFields(strategy.type)" :key="`${strategy.uid}-${field.code}`" class="ff-field">
+                        <span class="ff-field__label">{{ field.label }}</span>
+                        <textarea
+                          v-if="field.type === 'textarea'"
+                          v-model="strategy.config[field.code]"
+                          class="ff-textarea ff-textarea--main ff-textarea--compact"
+                          rows="3"
+                          :placeholder="field.placeholder ?? ''"
+                          :disabled="isSaving || isDeleting"
+                        ></textarea>
+                        <input
+                          v-else
+                          v-model="strategy.config[field.code]"
+                          type="text"
+                          class="ff-input ff-input--main"
+                          :placeholder="field.placeholder ?? ''"
+                          :disabled="isSaving || isDeleting"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div v-if="isEditMode" class="ff-meta">

@@ -43,6 +43,7 @@ $bootstrap = [
         'tagCreate' => 'sholokhov:featureflag.FeatureFlag.tagCreate',
         'tagUpdate' => 'sholokhov:featureflag.FeatureFlag.tagUpdate',
         'tagDelete' => 'sholokhov:featureflag.FeatureFlag.tagDelete',
+        'strategyList' => 'sholokhov:featureflag.FeatureFlag.strategyList',
     ],
 ];
 ?>

@@ -6,6 +6,7 @@ use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
 use Sholokhov\Featureflag\Repository\FeatureRepositoryInterface;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
 use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
+use Sholokhov\Featureflag\Strategy\StrategyRegistryInterface;
 
 use Bitrix\Main\DI\ServiceLocator;
 use Bitrix\Main\ObjectNotFoundException;
@@ -48,6 +49,18 @@ class ServiceProvider
     public static function getRuleRegistry(): RuleRegistryInterface
     {
         return ServiceLocator::getInstance()->get(RuleRegistryInterface::class);
+    }
+
+    /**
+     * Хранилище UI-стратегий доступа к флагам.
+     *
+     * @return StrategyRegistryInterface
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
+     */
+    public static function getStrategyRegistry(): StrategyRegistryInterface
+    {
+        return ServiceLocator::getInstance()->get(StrategyRegistryInterface::class);
     }
 
     /**

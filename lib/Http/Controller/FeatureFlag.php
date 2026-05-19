@@ -49,6 +49,7 @@ final class FeatureFlag extends Controller
             'tagCreate' => $config,
             'tagUpdate' => $config,
             'tagDelete' => $config,
+            'strategyList' => $config,
         ];
     }
 
@@ -153,6 +154,7 @@ final class FeatureFlag extends Controller
                 $request->description,
                 (bool)$request->enabled,
                 $request->tagId,
+                $request->strategies,
             ),
         );
     }
@@ -177,6 +179,7 @@ final class FeatureFlag extends Controller
                 $request->description,
                 (bool)$request->enabled,
                 $request->tagId,
+                $request->strategies,
             ),
         );
     }
@@ -244,7 +247,7 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->tagCreate($request->name),
+            $service->tagCreate($request->name, $request->strategies),
         );
     }
 
@@ -262,7 +265,7 @@ final class FeatureFlag extends Controller
         }
 
         return $this->resolveServiceResult(
-            $service->tagUpdate($request->id, $request->name),
+            $service->tagUpdate($request->id, $request->name, $request->strategies),
         );
     }
 
@@ -281,6 +284,19 @@ final class FeatureFlag extends Controller
 
         return $this->resolveServiceResult(
             $service->tagDelete($request->id),
+        );
+    }
+
+    /**
+     * Возвращает список доступных стратегий доступа.
+     *
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function strategyListAction(AdminFeatureFlagServiceInterface $service): ?array
+    {
+        return $this->resolveServiceResult(
+            $service->strategyList(),
         );
     }
 

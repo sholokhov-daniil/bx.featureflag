@@ -40,6 +40,9 @@ class FeatureTable extends DataManager
     /** Идентификатор тега */
     public const string FIELD_TAG_ID = 'TAG_ID';
 
+    /** JSON-конфигурация стратегий доступа */
+    public const string FIELD_STRATEGIES = 'STRATEGIES';
+
     /** Дата создания */
     public const string FIELD_DATE_CREATE = 'DATE_CREATE';
 
@@ -75,6 +78,9 @@ class FeatureTable extends DataManager
 
             (new Fields\IntegerField(self::FIELD_TAG_ID))
                 ->configureNullable(),
+
+            (new Fields\TextField(self::FIELD_STRATEGIES))
+                ->configureDefaultValue(''),
 
             (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
                 ->configureRequired()

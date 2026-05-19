@@ -20,6 +20,7 @@ final class FeatureUpsertRequest
      * @param string $description Описание фича-флага.
      * @param bool $enabled Признак активности.
      * @param string $tagId Идентификатор тега (опционально).
+     * @param mixed $strategies Стратегии доступа.
      */
     public function __construct(
         #[NotEmpty(errorMessage: 'Не заполнен код флага')]
@@ -36,6 +37,7 @@ final class FeatureUpsertRequest
         #[RegExp('/^[0-9]*$/', errorMessage: 'Неправильное значение тега')]
         #[Length(max: 20, errorMessage: 'Неправильное значение тега')]
         public readonly string $tagId,
+        public readonly mixed $strategies,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class FeatureUpsertRequest
             description: (string)$request->get('description'),
             enabled: EnabledValueNormalizer::normalize($request->get('enabled')),
             tagId: trim((string)$request->get('tagId')),
+            strategies: $request->get('strategies'),
         );
     }
 }
