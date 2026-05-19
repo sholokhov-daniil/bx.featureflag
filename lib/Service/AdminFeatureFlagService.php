@@ -2,20 +2,23 @@
 
 namespace Sholokhov\Featureflag\Service;
 
-use Bitrix\Main\Error;
-use Bitrix\Main\Localization\Loc;
-use Bitrix\Main\Result;
-use Bitrix\Main\Type\Date;
-use Bitrix\Main\Type\DateTime;
-use Bitrix\Main\UserTable;
+use Bitrix\Main\ArgumentException;
+use Bitrix\Main\ObjectPropertyException;
+use Bitrix\Main\SystemException;
 use Throwable;
+
 use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\ORM\FeatureTagTable;
 use Sholokhov\Featureflag\ServiceProvider;
 
-Loc::loadMessages(__FILE__);
+use Bitrix\Main\Error;
+use Bitrix\Main\Localization\Loc;
+use Bitrix\Main\Result;
+use Bitrix\Main\Type\Date;
+use Bitrix\Main\Type\DateTime;
+use Bitrix\Main\UserTable;
 
 /**
  * Сервис админ-операций с фича-флагами.
@@ -86,51 +89,37 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result
+    public function create(FlagInfo $flag): Result
     {
         $result = new Result();
         if (!$this->ensureSchema($result)) {
             return $result;
         }
 
-        $code = trim($code);
-        $name = trim($name);
-        $description = trim($description);
-        $enabledValue = $this->parseBoolean($enabled);
-        $tagIdValue = $this->parseTagId($tagId);
-        $strategiesResult = $this->normalizeStrategies($strategies);
+        $flagInfo = clone $flag;
+        $flagInfo->code = trim($flagInfo->code);
+        $flagInfo->name = trim($flagInfo->name);
+        $flagInfo->description = trim($flagInfo->description);
+        $flagInfo->tagId = $this->parseTagId($flagInfo->tagId);
 
-        $this->validatePayload($result, $code, $name, $description, $enabledValue, $tagIdValue);
+        $strategiesResult = $this->normalizeStrategies($flagInfo->strategies);
+
+        $this->validatePayload($result, $flagInfo);
         $this->appendResultErrors($result, $strategiesResult);
         if (!$result->isSuccess()) {
             return $result;
         }
 
-        $strategyItems = $strategiesResult->getData()['strategies'] ?? [];
+        $flagInfo->strategies = $this->encodeStrategies($strategiesResult->getData()['strategies'] ?? []);
 
-        $createResult = Feature::register(new FlagInfo(
-            code: $code,
-            name: $name,
-            description: $description,
-            enabled: (bool)$enabledValue,
-        ));
+        $createResult = Feature::register($flagInfo);
 
         if (!$createResult->isSuccess()) {
             $this->appendResultErrors($result, $createResult);
             return $result;
         }
 
-        $bindMetaResult = FeatureTable::update($code, [
-            FeatureTable::FIELD_TAG_ID => $tagIdValue,
-            FeatureTable::FIELD_STRATEGIES => $this->encodeStrategies($strategyItems),
-        ]);
-
-        if (!$bindMetaResult->isSuccess()) {
-            $this->appendResultErrors($result, $bindMetaResult);
-            return $result;
-        }
-
-        $row = $this->getFlagRow($code, $result);
+        $row = $this->getFlagRow($flagInfo->code, $result);
         if ($row === null) {
             return $result;
         }
@@ -143,21 +132,21 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @inheritDoc
      */
-    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result
+    public function update(FlagInfo $flag): Result
     {
         $result = new Result();
         if (!$this->ensureSchema($result)) {
             return $result;
         }
 
-        $code = trim($code);
-        $name = trim($name);
-        $description = trim($description);
-        $enabledValue = $this->parseBoolean($enabled);
-        $tagIdValue = $this->parseTagId($tagId);
-        $strategiesResult = $this->normalizeStrategies($strategies);
+        $flagInfo = clone $flag;
+        $flagInfo->name = trim($flagInfo->name);
+        $flagInfo->description = trim($flagInfo->description);
+        $flagInfo->tagId = $this->parseTagId($flagInfo->tagId);
 
-        $this->validatePayload($result, $code, $name, $description, $enabledValue, $tagIdValue);
+        $strategiesResult = $this->normalizeStrategies($flag->strategies);
+
+        $this->validatePayload($result, $flagInfo);
         $this->appendResultErrors($result, $strategiesResult);
         if (!$result->isSuccess()) {
             return $result;
@@ -165,17 +154,20 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         $strategyItems = $strategiesResult->getData()['strategies'] ?? [];
 
-        $row = $this->getFlagRow($code, $result);
+        $flagInfo->strategies = $this->encodeStrategies($strategyItems);
+
+        $row = $this->getFlagRow($flag->code, $result);
         if ($row === null) {
             return $result;
         }
 
-        $updateResult = FeatureTable::update($code, [
-            FeatureTable::FIELD_NAME => $name,
-            FeatureTable::FIELD_DESCRIPTION => $description,
-            FeatureTable::FIELD_ENABLED => (bool)$enabledValue,
-            FeatureTable::FIELD_TAG_ID => $tagIdValue,
-            FeatureTable::FIELD_STRATEGIES => $this->encodeStrategies($strategyItems),
+        $updateResult = FeatureTable::update($flagInfo->code, [
+            FeatureTable::FIELD_NAME => $flagInfo->name,
+            FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
+            FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
+            FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
+            FeatureTable::REMOVE_PLANNED_AT => new Date($flagInfo->removePlannedAt, 'd.m.Y'),
+            FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
         ]);
 
         if (!$updateResult->isSuccess()) {
@@ -183,7 +175,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             return $result;
         }
 
-        $updatedRow = $this->getFlagRow($code, $result);
+        $updatedRow = $this->getFlagRow($flag->code, $result);
         if ($updatedRow === null) {
             return $result;
         }
@@ -466,37 +458,26 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Валидирует данные формы фича-флага.
      *
      * @param Result $result
-     * @param string $code
-     * @param string $name
-     * @param string $description
-     * @param bool|null $enabled
-     * @param int|null $tagId
+     * @param FlagInfo $flag
      * @return void
      */
-    private function validatePayload(
-        Result $result,
-        string $code,
-        string $name,
-        string $description,
-        ?bool $enabled,
-        ?int $tagId,
-    ): void
+    private function validatePayload(Result $result, FlagInfo $flag): void
     {
-        if ($code === '') {
+        if ($flag->code === '') {
             $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
-        } elseif (!preg_match(self::CODE_PATTERN, $code)) {
+        } elseif (!preg_match(self::CODE_PATTERN, $flag->code)) {
             $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_CODE'));
-        } elseif (mb_strlen($code) > 255) {
+        } elseif (mb_strlen($flag->code) > 255) {
             $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_CODE_TOO_LONG'));
         }
 
-        if ($name === '') {
+        if ($flag->name === '') {
             $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_NAME'));
-        } elseif (mb_strlen($name) > 255) {
+        } elseif (mb_strlen($flag->name) > 255) {
             $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_NAME_TOO_LONG'));
         }
 
-        if (mb_strlen($description) > 5000) {
+        if (mb_strlen($flag->description) > 5000) {
             $this->addFieldError(
                 $result,
                 self::FIELD_DESCRIPTION,
@@ -504,11 +485,11 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             );
         }
 
-        if ($enabled === null) {
+        if ($flag->enabled === null) {
             $this->addFieldError($result, self::FIELD_ENABLED, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
         }
 
-        if ($tagId !== null && !$this->isTagExists($tagId)) {
+        if ($flag->tagId !== null && !$this->isTagExists($flag->tagId)) {
             $this->addFieldError($result, self::FIELD_TAG_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
         }
     }
@@ -543,6 +524,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @param array<int, array<string, mixed>> $rows
      * @return array<int, array<string, mixed>>
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     private function prepareFlags(array $rows): array
     {
@@ -569,6 +553,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             $creator = $users[$createdById] ?? null;
             $tagId = (int)($row[FeatureTable::FIELD_TAG_ID] ?? 0);
             $tagName = $tagId > 0 ? ($tags[$tagId]['NAME'] ?? '') : '';
+            $removePlannedAt = $row[FeatureTable::REMOVE_PLANNED_AT]?->format('d.m.Y') ?? '';
 
             $items[] = [
                 'code' => (string)($row[FeatureTable::FIELD_CODE] ?? ''),
@@ -583,6 +568,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
                 'strategies' => $this->decodeStrategies((string)($row[FeatureTable::FIELD_STRATEGIES] ?? '')),
                 'createdAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_CREATE] ?? null),
                 'updatedAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_UPDATE] ?? null),
+                'removePlannedAt' => $removePlannedAt,
                 'createdBy' => [
                     'id' => $createdById,
                     'title' => $creator !== null ? $this->formatUserTitle($creator) : '',
@@ -590,6 +576,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
                         ? '/bitrix/admin/user_edit.php?lang=' . rawurlencode(LANGUAGE_ID) . '&ID=' . $createdById
                         : '',
                 ],
+
             ];
         }
 
@@ -599,6 +586,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * @param int[] $userIds
      * @return array<int, array<string, mixed>>
+     * @throws ArgumentException
+     * @throws ObjectPropertyException
+     * @throws SystemException
      */
     private function loadUsers(array $userIds): array
     {

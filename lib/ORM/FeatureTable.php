@@ -55,6 +55,9 @@ class FeatureTable extends DataManager
     /** Пользователь, обновивший запись */
     public const string FIELD_UPDATED_BY = 'UPDATED_BY';
 
+    /** Плановая дата удаления флага  */
+    public const string REMOVE_PLANNED_AT = 'REMOVE_PLANNED_AT';
+
     public static function getTableName(): string
     {
         return 'sholokhov_featureflag';
@@ -89,6 +92,8 @@ class FeatureTable extends DataManager
             (new Fields\DatetimeField(self::FIELD_DATE_UPDATE))
                 ->configureRequired()
                 ->configureDefaultValueNow(),
+
+            (new Fields\DatetimeField(self::REMOVE_PLANNED_AT)),
 
             (new Fields\IntegerField(self::FIELD_CREATED_BY))
                 ->configureRequired(),

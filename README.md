@@ -1,48 +1,156 @@
 # Feature Flags (`sholokhov.featureflag`)
 
-Модуль для управления фича-флагами в 1C-Bitrix.
+Модуль для управления feature flags в 1C-Bitrix.
 
-Текущая версия ориентирована на backend API: флаги хранятся в собственной ORM-таблице, читаются через фасад `Feature`, а дополнительные условия доступа подключаются через пользовательские правила.
+Модуль предназначен для:
+- безопасного rollout новой функциональности
+- ограничения доступа к новым возможностям
+- A/B тестирования
+- постепенного внедрения изменений
+- runtime-управления поведением системы
 
-## Что есть сейчас
+---
 
-- установка модуля через стандартный механизм Bitrix
-- хранение флагов в таблице `sholokhov_featureflag`
-- регистрация флагов из PHP-кода
-- проверка флагов через статический фасад
-- настройка стратегий доступа из UI
-- хранение стратегий доступа в БД
-- поддержка пользовательских runtime-правил через `RuleInterface`
-- поддержка пользовательских UI-стратегий через `FeatureStrategyInterface`
+# Возможности модуля
+
+- хранение feature flags в ORM-таблице
+- управление флагами через административный интерфейс
+- runtime-проверка доступности флагов
+- пользовательские runtime-правила
+- пользовательские UI-стратегии
 - DI-регистрация сервисов через `.settings.php`
+- fallback-safe архитектура
+- интеграция с любым Bitrix-проектом
 
-## Чего пока нет
+---
 
-- rollout по проценту пользователей из коробки
-- аудит изменений флагов
+# Архитектура
 
-Процентный rollout можно добавить как пользовательскую стратегию.
+Модуль разделяет:
 
-## Системные требования
+- хранение состояния флага
+- UI-стратегии доступа
+- runtime-правила
+- runtime-проверку доступности
+
+Feature flag считается активным только если:
+
+1. флаг включён глобально
+2. пользователь прошёл UI-стратегии
+3. пользователь прошёл runtime-правила
+
+Это позволяет:
+- безопасно выкатывать функционал
+- ограничивать аудиторию
+- тестировать новые возможности
+- постепенно расширять rollout
+
+---
+
+# Схема вычисления флага
+
+```text
+Feature::isEnabled()
+        │
+        ▼
+Флаг существует?
+        │
+        ▼
+ENABLED = true ?
+        │
+        ▼
+Есть UI-стратегии?
+        │
+   ┌────┴────┐
+   ▼         ▼
+нет       хотя бы одна true
+   │         │
+   └────┬────┘
+        ▼
+Все runtime-правила true?
+        │
+        ▼
+      true
+```
+
+---
+
+# Системные требования
 
 - PHP 8.4+
-- установленный 1C-Bitrix с поддержкой локальных модулей
+- установленный 1C-Bitrix
+- поддержка локальных модулей
 
-## Установка
+---
 
-1. Положите модуль в `/local/modules/sholokhov.featureflag`.
-2. В административной части Bitrix откройте `Marketplace -> Установленные решения`.
-3. Установите модуль `sholokhov.featureflag`.
+# Установка
+
+## 1. Установка модуля
+
+Разместите модуль:
+
+```text
+/local/modules/sholokhov.featureflag
+```
+
+---
+
+## 2. Установка через Bitrix
+
+Откройте:
+
+```text
+Marketplace -> Установленные решения
+```
+
+Установите модуль:
+
+```text
+sholokhov.featureflag
+```
+
+---
+
+# Что создаётся при установке
 
 Во время установки модуль:
 
 - создаёт таблицу `sholokhov_featureflag`
+- создаёт таблицу `sholokhov_featureflag_tags`
 - регистрирует сервисы из `.settings.php`
-- добавляет страницу админки `Сервисы -> Фича-флаги -> Управление флагами`
+- добавляет страницу управления feature flags
+- подключает ORM сущности
 
-## Быстрый старт
+---
 
-Сначала подключите модуль:
+# Структура модуля
+
+```text
+lib/
+├── DTO/
+├── ORM/
+├── Rules/
+├── Strategy/
+├── Registry/
+├── Feature.php
+├── ServiceProvider.php
+```
+
+## Назначение директорий
+
+| Директория | Назначение |
+|---|---|
+| DTO | DTO-объекты |
+| ORM | ORM таблицы |
+| Rules | Runtime-правила |
+| Strategy | UI-стратегии |
+| Registry | Реестры правил и стратегий |
+
+---
+
+# Быстрый старт
+
+## Подключение модуля
 
 ```php
 use Bitrix\Main\Loader;
@@ -50,7 +158,9 @@ use Bitrix\Main\Loader;
 Loader::includeModule('sholokhov.featureflag');
 ```
 
-Зарегистрируйте флаг:
+---
+
+## Регистрация feature flag
 
 ```php
 use Sholokhov\Featureflag\DTO\FlagInfo;
@@ -64,7 +174,9 @@ Feature::register(new FlagInfo(
 ));
 ```
 
-Проверьте его в коде:
+---
+
+## Проверка feature flag
 
 ```php
 use Sholokhov\Featureflag\Feature;
@@ -76,11 +188,27 @@ if (Feature::isEnabled('crm.application.v2')) {
 }
 ```
 
-## API фасада `Feature`
+---
 
-### `Feature::isEnabled(string $code): bool`
+# API фасада Feature
 
-Возвращает `true`, если флаг включён и все применимые правила разрешают доступ.
+| Метод | Назначение |
+|---|---|
+| isEnabled | Проверка доступности |
+| isDisabled | Инверсия isEnabled |
+| when | Callback-based переключение |
+| require | Жёсткая проверка |
+| any | Проверка хотя бы одного флага |
+| all | Проверка всех флагов |
+| getByCode | Получение объекта флага |
+| register | Регистрация флага |
+| enabled | Включение флага |
+| disabled | Отключение флага |
+| unRegister | Удаление флага |
+
+---
+
+## Feature::isEnabled()
 
 ```php
 if (Feature::isEnabled('catalog.fast-filter')) {
@@ -88,19 +216,19 @@ if (Feature::isEnabled('catalog.fast-filter')) {
 }
 ```
 
-### `Feature::isDisabled(string $code): bool`
+---
 
-Инверсия `isEnabled()`.
+## Feature::isDisabled()
 
 ```php
 if (Feature::isDisabled('catalog.fast-filter')) {
-    // fallback
+    // fallback логика
 }
 ```
 
-### `Feature::when(string $code, callable $enabled, callable $disabled): void`
+---
 
-Позволяет разнести поведение по двум callback.
+## Feature::when()
 
 ```php
 Feature::when(
@@ -110,52 +238,48 @@ Feature::when(
 );
 ```
 
-### `Feature::require(string $code): void`
+---
 
-Выбрасывает `RuntimeException`, если флаг выключен.
+## Feature::require()
 
 ```php
 Feature::require('api.partner-access');
 ```
 
-### `Feature::any(array $codes): bool`
+---
 
-Возвращает `true`, если активен хотя бы один флаг.
+## Feature::any()
 
 ```php
-if (Feature::any(['search.v2', 'search.ab-test'])) {
+if (Feature::any([
+    'search.v2',
+    'search.ab-test',
+])) {
     $this->useNewSearch();
 }
 ```
 
-### `Feature::all(array $codes): bool`
+---
 
-Возвращает `true`, только если активны все флаги.
+## Feature::all()
 
 ```php
-if (Feature::all(['checkout.v2', 'payment.new-form'])) {
+if (Feature::all([
+    'checkout.v2',
+    'payment.new-form',
+])) {
     $this->enableScenario();
 }
 ```
 
-### `Feature::getByCode(string $code): ?FlagInterface`
+---
 
-Возвращает объект флага или `null`, если он не найден.
-
-```php
-$flag = Feature::getByCode('crm.application.v2');
-
-if ($flag) {
-    $name = $flag->getName();
-    $description = $flag->getDescription();
-}
-```
-
-### `Feature::register(FlagInfo $flag): AddResult`
-
-Создаёт запись в таблице флагов.
+## Feature::register()
 
 ```php
+use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\Feature;
+
 $result = Feature::register(new FlagInfo(
     code: 'personal.cabinet.v2',
     name: 'Новый личный кабинет',
@@ -164,54 +288,78 @@ $result = Feature::register(new FlagInfo(
 ));
 
 if (!$result->isSuccess()) {
-    throw new \RuntimeException(implode(', ', $result->getErrorMessages()));
+    throw new RuntimeException(
+        implode(', ', $result->getErrorMessages())
+    );
 }
 ```
 
-## Как работает вычисление флага
+---
+
+# Как работает вычисление feature flag
 
 Флаг считается включённым, если одновременно выполняются условия:
 
-1. В таблице `sholokhov_featureflag` у него `ENABLED = true`.
-2. Если у флага нет стратегий доступа, флаг доступен для всех.
-3. Если стратегии есть, хотя бы одна сохранённая стратегия должна вернуть `true`.
-4. Все дополнительные runtime-правила, зарегистрированные через `RuleInterface`, должны вернуть `true`.
+1. `ENABLED = true`
+2. хотя бы одна UI-стратегия разрешает доступ
+3. все runtime-правила разрешают доступ
 
-Если флаг не найден или при чтении произошла ошибка, `Feature::isEnabled()` вернёт `false`.
+---
 
-## Стратегии доступа из UI
+# UI-стратегии
 
-В административной части флага можно настроить стратегии доступа. Теги используются только как смысловые метки назначения, например `Релиз`, `Тестирование` или `Сбор статистики`, и не влияют на доступность флага. Из коробки доступны:
+Стратегии используются для ограничения доступа через административный интерфейс.
 
-- `ip_list` — ограничение для определённых IP
-- `ip_range` — ограничение по диапазону IP
-- `user_ids` — ограничение для определённых пользователей
-- `user_groups` — ограничение для определённых групп пользователей
-- `site_ids` — ограничение по ID сайта
+## Встроенные стратегии
 
-Стратегии одного флага работают по принципу OR: если совпала любая стратегия флага, сохранённые UI-ограничения пропускают пользователя. Это удобно для безопасного релиза: можно открыть фичу, например, либо офисному IP, либо группе тестировщиков.
-Сейчас UI поддерживает поля стратегий типов `text` и `textarea`.
+| Код | Назначение |
+|---|---|
+| ip_list | Список IP |
+| ip_range | Диапазон IP |
+| user_ids | ID пользователей |
+| user_groups | Группы пользователей |
+| site_ids | ID сайтов |
 
-## Пользовательские правила
+---
 
-Модуль поддерживает runtime-правила через интерфейс `Sholokhov\Featureflag\RuleInterface`.
+## Принцип работы стратегий
 
-В модуле есть готовые правила:
+Стратегии работают по принципу:
 
-- `Sholokhov\Featureflag\Rules\IsAdminRule` — доступ только для администраторов Bitrix
-- `Sholokhov\Featureflag\Rules\UserIdRule` — доступ по списку ID пользователей
-- `Sholokhov\Featureflag\Rules\UserGroupRule` — доступ по списку ID групп
+```text
+OR
+```
 
-Правила конфигурируются через конструктор:
+Если хотя бы одна стратегия вернула `true`, пользователь получает доступ.
 
-- `IsAdminRule` принимает необязательный массив кодов фич `supportedCodes`
-- `UserIdRule` принимает массив разрешённых ID пользователей и необязательный `supportedCodes`
-- `UserGroupRule` принимает массив разрешённых ID групп и необязательный `supportedCodes`
+Это позволяет:
+- открывать фичу тестировщикам
+- ограничивать rollout по IP
+- постепенно расширять аудиторию
 
-Если `supportedCodes` пустой, правило применяется ко всем флагам.
-Переданные ID в `UserIdRule` и `UserGroupRule` нормализуются в конструкторе: приводятся к `int`, очищаются от дубликатов и неположительных значений.
+---
 
-Примеры использования встроенных правил:
+# Runtime-правила
+
+Runtime-правила работают через интерфейс:
+
+```php
+Sholokhov\Featureflag\RuleInterface
+```
+
+---
+
+# Встроенные runtime-правила
+
+| Класс | Назначение |
+|---|---|
+| IsAdminRule | Только администраторы |
+| UserIdRule | Ограничение по ID пользователей |
+| UserGroupRule | Ограничение по группам |
+
+---
+
+# Регистрация runtime-правил
 
 ```php
 use Bitrix\Main\Loader;
@@ -236,21 +384,24 @@ ServiceProvider::getRuleRegistry()
     ));
 ```
 
-Если `supportedCodes` не передавать, правило будет применяться ко всем флагам:
+---
+
+# Пользовательские UI-стратегии
+
+Если стратегия должна:
+- отображаться в UI
+- храниться в БД
+- участвовать в runtime-проверке
+
+используйте:
 
 ```php
-ServiceProvider::getRuleRegistry()->register(
-    new UserGroupRule(groupIds: [1])
-);
+FeatureStrategyInterface
 ```
 
-Практически регистрацию правил имеет смысл делать в `init.php` проекта или в bootstrap вашего прикладного модуля.
+---
 
-## Пользовательские стратегии для UI
-
-Если стратегия должна отображаться в админке, сохраняться в БД и участвовать в runtime-проверке, регистрируйте её через `StrategyRegistryInterface`.
-
-Создайте класс стратегии:
+# Пример пользовательской стратегии
 
 ```php
 <?php
@@ -285,14 +436,12 @@ final class HeaderStrategy implements FeatureStrategyInterface
                 'code' => 'name',
                 'type' => 'text',
                 'label' => 'Имя заголовка',
-                'placeholder' => 'X-Feature-Token',
                 'required' => true,
             ],
             [
                 'code' => 'value',
                 'type' => 'text',
                 'label' => 'Значение',
-                'placeholder' => 'beta',
                 'required' => true,
             ],
         ];
@@ -304,7 +453,10 @@ final class HeaderStrategy implements FeatureStrategyInterface
         $value = trim((string)($config['value'] ?? ''));
 
         if ($name === '' || $value === '') {
-            return (new Result())->addError(new Error('Заполните имя и значение заголовка'));
+            return (new Result())
+                ->addError(
+                    new Error('Заполните имя и значение заголовка')
+                );
         }
 
         return (new Result())->setData([
@@ -315,16 +467,24 @@ final class HeaderStrategy implements FeatureStrategyInterface
         ]);
     }
 
-    public function isEnabled(string $featureCode, array $config): bool
-    {
-        $serverKey = 'HTTP_' . strtoupper(str_replace('-', '_', (string)$config['name']));
+    public function isEnabled(
+        string $featureCode,
+        array $config
+    ): bool {
+        $serverKey = 'HTTP_' .
+            strtoupper(
+                str_replace('-', '_', (string)$config['name'])
+            );
 
-        return (string)($_SERVER[$serverKey] ?? '') === (string)$config['value'];
+        return (string)($_SERVER[$serverKey] ?? '')
+            === (string)$config['value'];
     }
 }
 ```
 
-Зарегистрируйте стратегию после подключения модуля, например в `init.php` или bootstrap вашего модуля:
+---
+
+# Регистрация пользовательской стратегии
 
 ```php
 use Bitrix\Main\Loader;
@@ -333,60 +493,256 @@ use Sholokhov\Featureflag\ServiceProvider;
 
 Loader::includeModule('sholokhov.featureflag');
 
-ServiceProvider::getStrategyRegistry()->register(new HeaderStrategy());
+ServiceProvider::getStrategyRegistry()
+    ->register(new HeaderStrategy());
 ```
 
-После регистрации стратегия появится в форме флага. При сохранении модуль вызовет `normalizeConfig()`, положит нормализованную конфигурацию в поле `STRATEGIES`, а при `Feature::isEnabled()` вызовет `isEnabled()`.
+---
 
-## Изменение состояния флага
+# Типовые сценарии использования
 
-В текущей версии изменение состояния и удаление доступны через фасад `Feature`:
+---
+
+## Rollout новой CRM карточки
 
 ```php
-use Sholokhov\Featureflag\Feature;
-
-// Включение
-Feature::enabled('crm.application.v2');
-
-// Отключение
-Feature::disabled('crm.application.v2');
-
-// Удаление
-Feature::unRegister('crm.application.v2');
+if (Feature::isEnabled('crm.card.v2')) {
+    $this->renderNewCard();
+} else {
+    $this->renderOldCard();
+}
 ```
 
-Из публичного API сейчас доступны включение, отключение и удаление. Изменение `NAME` и `DESCRIPTION` по-прежнему нужно делать через ORM.
+---
 
-## Структура хранения
+## Ограничение API
 
-Таблица `sholokhov_featureflag` содержит:
+```php
+Feature::require('api.partner-access');
+```
 
-- `CODE` — первичный ключ флага
-- `ENABLED` — признак активности
-- `NAME` — человекочитаемое имя
-- `DESCRIPTION` — описание
-- `TAG_ID` — идентификатор тега
-- `STRATEGIES` — JSON-конфигурация стратегий доступа
-- `DATE_CREATE`, `DATE_UPDATE`
-- `CREATED_BY`, `UPDATED_BY`
+---
 
-Служебные поля выставляются автоматически через ORM-события `onBeforeAdd()` и `onBeforeUpdate()`.
+## Временное отключение функционала
 
-Таблица `sholokhov_featureflag_tags` содержит:
+```php
+if (Feature::isDisabled('search.v2')) {
+    return;
+}
+```
 
-- `ID` — первичный ключ тега
-- `NAME` — название тега
-- `SORT` — сортировка
+---
 
-## Ограничения текущей реализации
+## A/B тестирование
 
-- runtime-правила `RuleInterface` не хранятся в базе и живут только в runtime
-- нет отдельного механизма миграций или seed-скриптов для флагов
-- документацию и bootstrap правил нужно поддерживать на уровне проекта
+```php
+if (Feature::any([
+    'checkout.v2',
+    'checkout.ab-test',
+])) {
+    $this->renderNewCheckout();
+}
+```
 
-## Рекомендации по использованию
+---
 
-- используйте стабильные символьные коды, например `crm.application.v2`
-- всегда оставляйте fallback-ветку для отключённого флага
-- регистрируйте стартовые флаги в миграциях, init-скриптах или install-логике своих модулей
-- после полного rollout удаляйте устаревшие флаги и старую ветку кода
+## Runtime-доступ для администраторов
+
+```php
+ServiceProvider::getRuleRegistry()
+    ->register(new IsAdminRule());
+```
+
+---
+
+## Rollout через HTTP-заголовок
+
+```text
+X-Feature-Token: beta
+```
+
+---
+
+# Где что регистрировать
+
+| Что | Где рекомендуется |
+|---|---|
+| Feature::register() | install.php, миграции |
+| Runtime-правила | init.php |
+| UI-стратегии | init.php |
+| Bootstrap логика | bootstrap.php |
+
+---
+
+# Жизненный цикл feature flag
+
+Рекомендуемый lifecycle:
+
+1. Создание feature flag
+2. Ограниченный rollout
+3. Тестирование
+4. Постепенное расширение аудитории
+5. Полный rollout
+6. Удаление старой логики
+7. Удаление feature flag
+
+---
+
+# Рекомендации по использованию
+
+## Используйте стабильные коды
+
+Хорошо:
+
+```text
+crm.application.v2
+catalog.fast-filter
+checkout.new-payment
+```
+
+Плохо:
+
+```text
+new-feature
+test
+temp
+```
+
+---
+
+## Всегда оставляйте fallback
+
+```php
+if (Feature::isEnabled('checkout.v2')) {
+    $this->newCheckout();
+} else {
+    $this->oldCheckout();
+}
+```
+
+---
+
+## Не используйте feature flags как конфиг
+
+Feature flag — это временный механизм rollout.
+
+Не рекомендуется:
+- хранить бизнес-настройки
+- использовать как permanent configuration
+- заменять ими настройки модуля
+
+---
+
+## Удаляйте устаревшие feature flags
+
+После полного rollout:
+- удаляйте старую ветку логики
+- удаляйте флаг
+- удаляйте runtime-правила
+
+---
+
+# Production-рекомендации
+
+- выкатывайте новые функции через feature flags
+- не удаляйте fallback до полного rollout
+- используйте отдельные теги:
+    - Release
+    - Testing
+    - Internal
+    - Experimental
+
+---
+
+# Почему runtime-правила не хранятся в БД
+
+Runtime-правила:
+- могут зависеть от окружения
+- могут использовать DI
+- могут использовать сервисы
+- могут содержать бизнес-логику
+
+Поэтому они регистрируются в runtime.
+
+---
+
+# Структура хранения
+
+## Таблица sholokhov_featureflag
+
+| Поле | Назначение |
+|---|---|
+| CODE | Код флага |
+| ENABLED | Активность |
+| NAME | Название |
+| DESCRIPTION | Описание |
+| TAG_ID | ID тега |
+| STRATEGIES | JSON стратегий |
+| DATE_CREATE | Дата создания |
+| DATE_UPDATE | Дата обновления |
+| CREATED_BY | Кто создал |
+| UPDATED_BY | Кто обновил |
+
+---
+
+## Таблица sholokhov_featureflag_tags
+
+| Поле | Назначение |
+|---|---|
+| ID | ID тега |
+| NAME | Название |
+| SORT | Сортировка |
+
+---
+
+# Ограничения текущей реализации
+
+- runtime-правила не хранятся в БД
+- нет встроенного rollout по процентам
+- нет встроенного аудита изменений
+- нет встроенных seed-механизмов
+
+---
+
+# Полный пример подключения
+
+```php
+use Bitrix\Main\Loader;
+use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\Feature;
+use Sholokhov\Featureflag\ServiceProvider;
+use Sholokhov\Featureflag\Rules\IsAdminRule;
+
+Loader::includeModule('sholokhov.featureflag');
+
+Feature::register(new FlagInfo(
+    code: 'crm.application.v2',
+    name: 'Новая CRM карточка',
+    description: 'Новая версия CRM карточки',
+    enabled: false,
+));
+
+ServiceProvider::getRuleRegistry()
+    ->register(new IsAdminRule(
+        supportedCodes: ['crm.application.v2']
+    ));
+
+if (Feature::isEnabled('crm.application.v2')) {
+    $this->renderNewCard();
+} else {
+    $this->renderOldCard();
+}
+```
+
+---
+
+# Итог
+
+`sholokhov.featureflag` — это production-ready механизм feature flags для 1C-Bitrix, позволяющий:
+
+- безопасно выкатывать функционал
+- ограничивать аудиторию
+- управлять rollout
+- подключать runtime-правила
+- расширять систему собственными стратегиями
+- минимизировать риски релиза

@@ -2,11 +2,10 @@
 
 namespace Sholokhov\Featureflag\Http\Controller;
 
+use Sholokhov\Featureflag\DTO\FlagInfo;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
 use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
-use Sholokhov\Featureflag\Http\Request\FeatureCodeRequest;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
-use Sholokhov\Featureflag\Http\Request\FeatureUpsertRequest;
 use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
 use Sholokhov\Featureflag\Http\Request\TagIdRequest;
 use Sholokhov\Featureflag\Http\Request\TagUpdateRequest;
@@ -71,13 +70,8 @@ final class FeatureFlag extends Controller
                 static fn() => ServiceProvider::getAdminFeatureFlagService(),
             ),
             new ValidationParameter(
-                FeatureCodeRequest::class,
-                static fn() => FeatureCodeRequest::fromRequest($request),
-                $addValidationErrors,
-            ),
-            new ValidationParameter(
-                FeatureUpsertRequest::class,
-                static fn() => FeatureUpsertRequest::fromRequest($request),
+                FlagInfo::class,
+                static fn() => FlagInfo::fromRequest($request),
                 $addValidationErrors,
             ),
             new ValidationParameter(
@@ -119,86 +113,64 @@ final class FeatureFlag extends Controller
     /**
      * Возвращает детальные данные фича-флага.
      *
-     * @param FeatureCodeRequest|null $request
+     * @param string $code
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function getAction(?FeatureCodeRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function getAction(string $code, AdminFeatureFlagServiceInterface $service): ?array
     {
-        if ($request === null) {
-            return null;
-        }
-
         return $this->resolveServiceResult(
-            $service->get($request->code),
+            $service->get($code),
         );
     }
 
     /**
      * Создаёт фича-флаг.
      *
-     * @param FeatureUpsertRequest|null $request
+     * @param FlagInfo|null $request
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function createAction(?FeatureUpsertRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function createAction(?FlagInfo $request, AdminFeatureFlagServiceInterface $service): ?array
     {
         if ($request === null) {
             return null;
         }
 
         return $this->resolveServiceResult(
-            $service->create(
-                $request->code,
-                $request->name,
-                $request->description,
-                (bool)$request->enabled,
-                $request->tagId,
-                $request->strategies,
-            ),
+            $service->create($request),
         );
     }
 
     /**
      * Обновляет фича-флаг.
      *
-     * @param FeatureUpsertRequest|null $request
+     * @param FlagInfo|null $request
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function updateAction(?FeatureUpsertRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function updateAction(?FlagInfo $request, AdminFeatureFlagServiceInterface $service): ?array
     {
         if ($request === null) {
             return null;
         }
 
         return $this->resolveServiceResult(
-            $service->update(
-                $request->code,
-                $request->name,
-                $request->description,
-                (bool)$request->enabled,
-                $request->tagId,
-                $request->strategies,
-            ),
+            $service->update($request),
         );
     }
 
     /**
      * Удаляет фича-флаг.
      *
-     * @param FeatureCodeRequest|null $request
+     * @param string $code
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function deleteAction(?FeatureCodeRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function deleteAction(string $code, AdminFeatureFlagServiceInterface $service): ?array
     {
-        if ($request === null) {
-            return null;
-        }
-
         return $this->resolveServiceResult(
-            $service->delete($request->code),
+            $service->delete($code),
         );
     }
 

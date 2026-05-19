@@ -3,6 +3,7 @@
 namespace Sholokhov\Featureflag\Service;
 
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\DTO\FlagInfo;
 
 /**
  * Контракт сервиса управления фича-флагами в админке.
@@ -27,28 +28,18 @@ interface AdminFeatureFlagServiceInterface
     /**
      * Создаёт новый фича-флаг.
      *
-     * @param string $code
-     * @param string $name
-     * @param string $description
-     * @param mixed $enabled
-     * @param string $tagId
-     * @param mixed $strategies
+     * @param FlagInfo $flag
      * @return Result{flag: array<string, mixed>}
      */
-    public function create(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result;
+    public function create(FlagInfo $flag): Result;
 
     /**
      * Обновляет существующий фича-флаг.
      *
-     * @param string $code
-     * @param string $name
-     * @param string $description
-     * @param mixed $enabled
-     * @param string $tagId
-     * @param mixed $strategies
+     * @param FlagInfo $flag
      * @return Result{flag: array<string, mixed>}
      */
-    public function update(string $code, string $name, string $description, mixed $enabled, string $tagId, mixed $strategies = []): Result;
+    public function update(FlagInfo $flag): Result;
 
     /**
      * Удаляет фича-флаг.

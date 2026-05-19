@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
+use Bitrix\Main\Type\Date;
 use Throwable;
 
 use Sholokhov\Featureflag\DTO\FlagInfo;
@@ -87,6 +88,8 @@ class FeatureRepository implements FeatureRepositoryInterface
                 FeatureTable::FIELD_NAME => $flag->name,
                 FeatureTable::FIELD_DESCRIPTION => $flag->description,
                 FeatureTable::FIELD_ENABLED => $flag->enabled,
+                FeatureTable::REMOVE_PLANNED_AT => $flag->removePlannedAt ? new Date($flag->removePlannedAt, 'd.m.Y') : null,
+
             ]);
         } catch (DuplicateEntryException) {
             return (new AddResult())

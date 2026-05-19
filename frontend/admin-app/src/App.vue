@@ -25,6 +25,7 @@ interface FeatureFlagItem {
   strategies: FeatureFlagStrategyItem[]
   createdAt: string
   updatedAt: string
+  removePlannedAt: string
   createdBy: FeatureFlagUser
 }
 
@@ -39,6 +40,7 @@ interface FeatureFlagForm {
   description: string
   enabled: boolean
   tagId: string
+  removePlannedAt: string,
   strategies: FeatureFlagStrategyFormItem[]
 }
 
@@ -141,7 +143,9 @@ const fieldErrors = reactive<FieldErrors>({
   enabled: [],
   tagId: [],
   strategies: [],
-})
+});
+
+const removePlannedAtInput = ref<HTMLInputElement | null>(null)
 
 const form = reactive<FeatureFlagForm>({
   code: '',
@@ -149,6 +153,7 @@ const form = reactive<FeatureFlagForm>({
   description: '',
   enabled: false,
   tagId: '',
+  removePlannedAt: '',
   strategies: [],
 })
 
@@ -294,6 +299,7 @@ async function submitForm(): Promise<void> {
     description: form.description.trim(),
     enabled: form.enabled,
     tagId: form.tagId,
+    removePlannedAt: dateToServerFormat(form.removePlannedAt),
     strategies: serializeStrategies(),
   }
 
@@ -373,6 +379,7 @@ function hydrateForm(flag: FeatureFlagItem): void {
   form.name = flag.name
   form.description = flag.description
   form.enabled = flag.enabled
+  form.removePlannedAt = dateToInputFormat(flag.removePlannedAt);
   form.tagId = flag.tagId ? String(flag.tagId) : ''
   form.strategies = (flag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
   detailMeta.createdBy = flag.createdBy
@@ -386,6 +393,7 @@ function resetForm(): void {
   form.description = ''
   form.enabled = false
   form.tagId = ''
+  form.removePlannedAt = '';
   form.strategies = []
 }
 
@@ -849,6 +857,26 @@ function normalizeErrorItem(item: unknown): UiErrorItem | null {
   }
 }
 
+function dateToInputFormat(value: string): string {
+  const match = value.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+
+  if (match === null) {
+    return ''
+  }
+
+  return `${match[3]}-${match[2]}-${match[1]}`
+}
+
+function dateToServerFormat(value: string): string | null {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (match === null) {
+    return null
+  }
+
+  return `${match[3]}.${match[2]}.${match[1]}`
+}
+
 function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
   const seen = new Set<string>()
   const unique: UiErrorItem[] = []
@@ -932,6 +960,7 @@ function extractErrorText(error: unknown, fallback: string): string {
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT') }}</th>
               <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT') }}</th>
+              <th>Плановая дата удаления</th>
             </tr>
           </thead>
           <tbody>
@@ -990,6 +1019,7 @@ function extractErrorText(error: unknown, fallback: string): string {
               </td>
               <td class="ff-nowrap">{{ flag.createdAt }}</td>
               <td class="ff-nowrap">{{ flag.updatedAt }}</td>
+              <td class="ff-nowrap">{{ flag.removePlannedAt }}</td>
             </tr>
           </tbody>
         </table>
@@ -1121,6 +1151,17 @@ function extractErrorText(error: unknown, fallback: string): string {
                   </div>
                 </div>
               </label>
+
+              <label class="ff-field ff-field--full">
+                <span class="ff-field__label">Плановая дата удаления</span>
+                <input
+                    v-model="form.removePlannedAt"
+                    type="date"
+                    class="ff-input ff-input--main"
+                    :disabled="isSaving || isDeleting"
+                />
+              </label>
+
 
               <div class="ff-field ff-field--full">
                 <div class="ff-strategies-head">
