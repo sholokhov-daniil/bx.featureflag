@@ -2,7 +2,6 @@
 
 namespace Sholokhov\Featureflag\Rules;
 
-use CUser;
 use Sholokhov\Featureflag\RuleInterface;
 
 /**
@@ -58,11 +57,7 @@ final readonly class UserGroupRule implements RuleInterface
      */
     public function isSupported(string $code): bool
     {
-        if ($this->supportedCodes === []) {
-            return true;
-        }
-
-        return in_array($code, $this->supportedCodes, true);
+        return empty($this->supportedCodes) || in_array($code, $this->supportedCodes, true);
     }
 
     /**
@@ -84,11 +79,7 @@ final readonly class UserGroupRule implements RuleInterface
 
         $currentGroupIds = $this->getCurrentUserGroupIds();
 
-        if ($currentGroupIds === []) {
-            return false;
-        }
-
-        return array_intersect($this->groupIds, $currentGroupIds) !== [];
+        return !empty($currentGroupIds) && array_intersect($this->groupIds, $currentGroupIds);
     }
 
     /**
@@ -108,11 +99,11 @@ final readonly class UserGroupRule implements RuleInterface
             $id = (int)$id;
 
             if ($id > 0) {
-                $result[$id] = $id;
+                $result[] = $id;
             }
         }
 
-        return array_values($result);
+        return $result;
     }
 
     /**
@@ -127,18 +118,8 @@ final readonly class UserGroupRule implements RuleInterface
     {
         global $USER;
 
-        if (!is_object($USER)) {
-            return [];
-        }
-
-        if (method_exists($USER, 'GetUserGroupArray')) {
-            return $this->normalizeIds((array)$USER->GetUserGroupArray());
-        }
-
-        if (method_exists($USER, 'GetID')) {
-            return $this->normalizeIds(CUser::GetUserGroup((int)$USER->GetID()));
-        }
-
-        return [];
+        return $USER
+            ? $this->normalizeIds($USER->GetUserGroupArray())
+            : [];
     }
 }

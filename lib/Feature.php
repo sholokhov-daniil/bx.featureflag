@@ -5,7 +5,7 @@ namespace Sholokhov\Featureflag;
 use Throwable;
 use RuntimeException;
 
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 
 use Bitrix\Main\Error;
 use Bitrix\Main\Result;
@@ -130,12 +130,12 @@ final class Feature
     /**
      * Регистрация новой фичи
      *
-     * @param FlagInfo $flag
+     * @param FeatureFlagPayload $flag
      * @return AddResult
      * @throws ObjectNotFoundException
      * @throws NotFoundExceptionInterface
      */
-    public static function register(FlagInfo $flag): AddResult
+    public static function register(FeatureFlagPayload $flag): AddResult
     {
         return ServiceProvider::getFeatureRepository()->create($flag);
     }

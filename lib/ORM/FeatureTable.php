@@ -83,7 +83,13 @@ class FeatureTable extends DataManager
                 ->configureNullable(),
 
             (new Fields\TextField(self::FIELD_STRATEGIES))
-                ->configureDefaultValue(''),
+                ->configureDefaultValue('')
+                ->addSaveDataModifier(
+                    static fn($value) => json_encode($value)
+                )
+                ->addFetchDataModifier(
+                    static fn($value) => json_decode($value, true, 512, JSON_THROW_ON_ERROR)
+                ),
 
             (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
                 ->configureRequired()
@@ -135,11 +141,6 @@ class FeatureTable extends DataManager
     private static function getCurrentUserId(): int
     {
         global $USER;
-
-        if (is_object($USER) && method_exists($USER, 'GetID')) {
-            return (int)$USER->GetID();
-        }
-
-        return 0;
+        return $USER ? (int)$USER->GetID() : 0;
     }
 }

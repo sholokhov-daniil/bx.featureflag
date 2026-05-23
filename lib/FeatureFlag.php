@@ -148,7 +148,6 @@ final readonly class FeatureFlag implements FeatureInterface
      */
     public function delete(): Result
     {
-        $this->entity->set(FeatureTable::FIELD_ENABLED, false);
         return $this->entity->delete();
     }
 }
