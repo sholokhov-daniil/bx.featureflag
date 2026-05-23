@@ -1,0 +1,3 @@
+<?php
+
+$MESS['SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'] = 'Тег не найден';

@@ -1,56 +1,75 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sholokhov\Featureflag\Service;
 
 use Bitrix\Main\ArgumentException;
+use Bitrix\Main\Error;
+use Bitrix\Main\Localization\Loc;
+use Bitrix\Main\ObjectNotFoundException;
 use Bitrix\Main\ObjectPropertyException;
+use Bitrix\Main\Result;
 use Bitrix\Main\SystemException;
-use Throwable;
-
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Psr\Container\NotFoundExceptionInterface;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\ORM\FeatureTagTable;
 use Sholokhov\Featureflag\ServiceProvider;
-
-use Bitrix\Main\Error;
-use Bitrix\Main\Localization\Loc;
-use Bitrix\Main\Result;
-use Bitrix\Main\Type\Date;
-use Bitrix\Main\Type\DateTime;
-use Bitrix\Main\UserTable;
+use Throwable;
 
 /**
- * Сервис админ-операций с фича-флагами.
+ * Координирует админские сценарии управления фича-флагами.
  *
- * Содержит бизнес-логику:
- * - валидацию входных данных;
- * - CRUD/toggle операции;
- * - подготовку данных под формат API админки.
+ * Сервис оставляет за собой orchestration layer:
+ * - валидирует простые scalar-параметры, которые приходят не через DTO;
+ * - делегирует запись флагов доменному репозиторию/фасаду;
+ * - выполняет CRUD тегов;
+ * - передаёт ORM-строки presenter-классу для формирования API-ответа.
  */
 final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 {
-    private const FIELD_CODE = 'code';
-    private const FIELD_NAME = 'name';
-    private const FIELD_DESCRIPTION = 'description';
-    private const FIELD_ENABLED = 'enabled';
-    private const FIELD_TAG_ID = 'tagId';
-    private const FIELD_STRATEGIES = 'strategies';
-    private const FIELD_ID = 'id';
-
-    private const CODE_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]*$/';
-    private bool $isSchemaInitialized = false;
+    private const string CODE_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]*$/';
+    private const int MAX_CODE_LENGTH = 255;
+    private const int MAX_TAG_NAME_LENGTH = 255;
 
     /**
-     * @inheritDoc
+     * @var AdminFeatureFlagPresenter Presenter API-ответов админки.
+     */
+    private readonly AdminFeatureFlagPresenter $presenter;
+
+    /**
+     * @var AdminFeatureFlagErrorMapper Mapper ошибок админского API.
+     */
+    private readonly AdminFeatureFlagErrorMapper $errorMapper;
+
+    /**
+     * Создаёт сервис админских операций фича-флагов.
+     *
+     * @param AdminFeatureFlagPresenter|null $presenter Presenter API-ответов; null создаёт presenter по умолчанию.
+     * @param AdminFeatureFlagErrorMapper|null $errorMapper Mapper ошибок; null создаёт mapper по умолчанию.
+     * @return void
+     */
+    public function __construct(
+        ?AdminFeatureFlagPresenter $presenter = null,
+        ?AdminFeatureFlagErrorMapper $errorMapper = null,
+    ) {
+        $this->presenter = $presenter ?? new AdminFeatureFlagPresenter();
+        $this->errorMapper = $errorMapper ?? new AdminFeatureFlagErrorMapper();
+    }
+
+    /**
+     * Возвращает список фича-флагов для админского интерфейса.
+     *
+     * @return Result{items: array<int, array<string, mixed>>} Результат со списком фича-флагов.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function list(): Result
     {
-        $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
-
+        /** @var array<int, array<string, mixed>> $rows */
         $rows = FeatureTable::query()
             ->setSelect(['*'])
             ->setOrder([
@@ -59,152 +78,98 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ])
             ->fetchAll();
 
-        return $result->setData([
-            'items' => $this->prepareFlags($rows),
+        return $this->success([
+            'items' => $this->presenter->presentFlags($rows),
         ]);
     }
 
     /**
-     * @inheritDoc
+     * Возвращает один фича-флаг по символьному коду.
+     *
+     * @param string $code Символьный код фича-флага.
+     * @return Result{flag: array<string, mixed>} Результат с данными фича-флага.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function get(string $code): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
+        $code = $this->normalizeCode($code);
+
+        if (!$this->validateCode($result, $code)) {
             return $result;
         }
 
-        $code = trim($code);
-
-        $row = $this->getFlagRow($code, $result);
+        $row = $this->findFlagRow($code);
         if ($row === null) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_NOT_FOUND'));
             return $result;
         }
 
-        return $result->setData([
-            'flag' => $this->prepareFlags([$row])[0],
-        ]);
+        return $this->withFlagData($result, $row);
     }
 
     /**
-     * @inheritDoc
+     * Создаёт новый фича-флаг.
+     *
+     * @param FeatureFlagPayload $payload DTO создаваемого фича-флага.
+     * @return Result{flag: array<string, mixed>} Результат создания с подготовленным фича-флагом.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws NotFoundExceptionInterface При ошибке получения зависимости из контейнера.
+     * @throws ObjectNotFoundException При ошибке получения зависимости из контейнера Bitrix.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
-    public function create(FlagInfo $flag): Result
+    public function create(FeatureFlagPayload $payload): Result
     {
-        $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
-
-        $flagInfo = clone $flag;
-        $flagInfo->code = trim($flagInfo->code);
-        $flagInfo->name = trim($flagInfo->name);
-        $flagInfo->description = trim($flagInfo->description);
-        $flagInfo->tagId = $this->parseTagId($flagInfo->tagId);
-
-        $strategiesResult = $this->normalizeStrategies($flagInfo->strategies);
-
-        $this->validatePayload($result, $flagInfo);
-        $this->appendResultErrors($result, $strategiesResult);
+        $result = ServiceProvider::getFeatureRepository()->create($payload);
         if (!$result->isSuccess()) {
-            return $result;
+            return $this->errorMapper->enrichFailedResult($result);
         }
 
-        $flagInfo->strategies = $this->encodeStrategies($strategiesResult->getData()['strategies'] ?? []);
-
-        $createResult = Feature::register($flagInfo);
-
-        if (!$createResult->isSuccess()) {
-            $this->appendResultErrors($result, $createResult);
-            return $result;
-        }
-
-        $row = $this->getFlagRow($flagInfo->code, $result);
-        if ($row === null) {
-            return $result;
-        }
-
-        return $result->setData([
-            'flag' => $this->prepareFlags([$row])[0],
-        ]);
+        return $this->withFreshFlagData($result, $payload->code);
     }
 
     /**
-     * @inheritDoc
+     * Обновляет существующий фича-флаг.
+     *
+     * @param FeatureFlagPayload $payload DTO обновляемого фича-флага.
+     * @return Result{flag: array<string, mixed>} Результат обновления с подготовленным фича-флагом.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws NotFoundExceptionInterface При ошибке получения зависимости из контейнера.
+     * @throws ObjectNotFoundException При ошибке получения зависимости из контейнера Bitrix.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
-    public function update(FlagInfo $flag): Result
+    public function update(FeatureFlagPayload $payload): Result
     {
-        $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
-
-        $flagInfo = clone $flag;
-        $flagInfo->name = trim($flagInfo->name);
-        $flagInfo->description = trim($flagInfo->description);
-        $flagInfo->tagId = $this->parseTagId($flagInfo->tagId);
-
-        $strategiesResult = $this->normalizeStrategies($flag->strategies);
-
-        $this->validatePayload($result, $flagInfo);
-        $this->appendResultErrors($result, $strategiesResult);
+        $result = ServiceProvider::getFeatureRepository()->update($payload);
         if (!$result->isSuccess()) {
-            return $result;
+            return $this->errorMapper->enrichFailedResult($result);
         }
 
-        $strategyItems = $strategiesResult->getData()['strategies'] ?? [];
-
-        $flagInfo->strategies = $this->encodeStrategies($strategyItems);
-
-        $row = $this->getFlagRow($flag->code, $result);
-        if ($row === null) {
-            return $result;
-        }
-
-        $updateResult = FeatureTable::update($flagInfo->code, [
-            FeatureTable::FIELD_NAME => $flagInfo->name,
-            FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
-            FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
-            FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
-            FeatureTable::REMOVE_PLANNED_AT => new Date($flagInfo->removePlannedAt, 'd.m.Y'),
-            FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
-        ]);
-
-        if (!$updateResult->isSuccess()) {
-            $this->appendResultErrors($result, $updateResult);
-            return $result;
-        }
-
-        $updatedRow = $this->getFlagRow($flag->code, $result);
-        if ($updatedRow === null) {
-            return $result;
-        }
-
-        return $result->setData([
-            'flag' => $this->prepareFlags([$updatedRow])[0],
-        ]);
+        return $this->withFreshFlagData($result, $payload->code);
     }
 
     /**
-     * @inheritDoc
+     * Удаляет фича-флаг по символьному коду.
+     *
+     * @param string $code Символьный код фича-флага.
+     * @return Result{code: string} Результат удаления.
      */
     public function delete(string $code): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
+        $code = $this->normalizeCode($code);
 
-        $code = trim($code);
-
-        if ($code === '') {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
+        if (!$this->validateCode($result, $code)) {
             return $result;
         }
 
         $deleteResult = Feature::unRegister($code);
         if (!$deleteResult->isSuccess()) {
-            $this->appendResultErrors($result, $deleteResult);
+            $this->errorMapper->appendErrors($result, $deleteResult);
             return $result;
         }
 
@@ -214,54 +179,50 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
-     * @inheritDoc
+     * Переключает активность фича-флага.
+     *
+     * @param string $code Символьный код фича-флага.
+     * @param bool|int|float|string|null $enabled Целевое состояние активности.
+     * @return Result{flag: array<string, mixed>} Результат переключения с подготовленным фича-флагом.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
-    public function toggle(string $code, mixed $enabled): Result
+    public function toggle(string $code, bool|int|float|string|null $enabled): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
-
-        $code = trim($code);
+        $code = $this->normalizeCode($code);
         $enabledValue = $this->parseBoolean($enabled);
 
-        if ($code === '') {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
+        if (!$this->validateCode($result, $code)) {
             return $result;
         }
 
         if ($enabledValue === null) {
-            $this->addFieldError($result, self::FIELD_ENABLED, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ENABLED, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
             return $result;
         }
 
         $toggleResult = $enabledValue ? Feature::enabled($code) : Feature::disabled($code);
         if (!$toggleResult->isSuccess()) {
-            $this->appendResultErrors($result, $toggleResult);
+            $this->errorMapper->appendErrors($result, $toggleResult);
             return $result;
         }
 
-        $row = $this->getFlagRow($code, $result);
-        if ($row === null) {
-            return $result;
-        }
-
-        return $result->setData([
-            'flag' => $this->prepareFlags([$row])[0],
-        ]);
+        return $this->withFreshFlagData($result, $code);
     }
 
     /**
-     * @inheritDoc
+     * Возвращает список тегов фича-флагов.
+     *
+     * @return Result{items: array<int, array<string, mixed>>} Результат со списком тегов.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function tagList(): Result
     {
-        $result = new Result();
-        if (!$this->ensureSchema($result)) {
-            return $result;
-        }
-
+        /** @var array<int, array<string, mixed>> $rows */
         $rows = FeatureTagTable::query()
             ->setSelect([
                 FeatureTagTable::FIELD_ID,
@@ -275,37 +236,31 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ])
             ->fetchAll();
 
-        return $result->setData([
-            'items' => array_map(
-                fn(array $row): array => [
-                    'id' => (int)($row[FeatureTagTable::FIELD_ID] ?? 0),
-                    'name' => (string)($row[FeatureTagTable::FIELD_NAME] ?? ''),
-                ],
-                $rows,
-            ),
+        return $this->success([
+            'items' => $this->presenter->presentTags($rows),
         ]);
     }
 
     /**
-     * @inheritDoc
+     * Создаёт тег фича-флагов.
+     *
+     * @param string $name Название тега.
+     * @return Result{tag: array<string, mixed>} Результат создания тега.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function tagCreate(string $name): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
+        $name = $this->normalizeTagName($name);
+
+        if (!$this->validateTagName($result, $name)) {
             return $result;
         }
 
-        $name = trim($name);
-
-        $this->validateTagName($result, $name);
-        if (!$result->isSuccess()) {
-            return $result;
-        }
-
-        $existingByName = $this->findTagByName($name);
-        if ($existingByName !== null) {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+        if ($this->isTagNameBusy($name)) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
             return $result;
         }
 
@@ -314,55 +269,39 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         ]);
 
         if (!$createResult->isSuccess()) {
-            $this->appendResultErrors($result, $createResult);
+            $this->errorMapper->appendErrors($result, $createResult);
             return $result;
         }
 
-        $tagId = (int)$createResult->getId();
-        $tag = $this->getTagRow($tagId, $result);
-        if ($tag === null) {
-            return $result;
-        }
-
-        return $result->setData([
-            'tag' => [
-                'id' => (int)$tag[FeatureTagTable::FIELD_ID],
-                'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
-            ],
-        ]);
+        return $this->withTagData($result, (int)$createResult->getId());
     }
 
     /**
-     * @inheritDoc
+     * Обновляет тег фича-флагов.
+     *
+     * @param string $id Идентификатор тега.
+     * @param string $name Новое название тега.
+     * @return Result{tag: array<string, mixed>} Результат обновления тега.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function tagUpdate(string $id, string $name): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
+        $tagId = $this->parseTagId($result, $id);
+        $name = $this->normalizeTagName($name);
+
+        if ($tagId === null || !$this->validateTagName($result, $name)) {
             return $result;
         }
 
-        $name = trim($name);
-        $tagId = (int)$id;
-
-        if ($tagId <= 0) {
-            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+        if ($this->getTagRow($tagId, $result) === null) {
             return $result;
         }
 
-        $this->validateTagName($result, $name);
-        if (!$result->isSuccess()) {
-            return $result;
-        }
-
-        $currentTag = $this->getTagRow($tagId, $result);
-        if ($currentTag === null) {
-            return $result;
-        }
-
-        $existingByName = $this->findTagByName($name);
-        if ($existingByName !== null && (int)$existingByName[FeatureTagTable::FIELD_ID] !== $tagId) {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+        if ($this->isTagNameBusy($name, $tagId)) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
             return $result;
         }
 
@@ -371,54 +310,40 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         ]);
 
         if (!$updateResult->isSuccess()) {
-            $this->appendResultErrors($result, $updateResult);
+            $this->errorMapper->appendErrors($result, $updateResult);
             return $result;
         }
 
-        $tag = $this->getTagRow($tagId, $result);
-        if ($tag === null) {
-            return $result;
-        }
-
-        return $result->setData([
-            'tag' => [
-                'id' => (int)$tag[FeatureTagTable::FIELD_ID],
-                'name' => (string)$tag[FeatureTagTable::FIELD_NAME],
-            ],
-        ]);
+        return $this->withTagData($result, $tagId);
     }
 
     /**
-     * @inheritDoc
+     * Удаляет тег фича-флагов.
+     *
+     * @param string $id Идентификатор тега.
+     * @return Result{id: int} Результат удаления тега.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     public function tagDelete(string $id): Result
     {
         $result = new Result();
-        if (!$this->ensureSchema($result)) {
+        $tagId = $this->parseTagId($result, $id);
+
+        if ($tagId === null) {
             return $result;
         }
 
-        $tagId = (int)$id;
-
-        if ($tagId <= 0) {
-            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+        if ($this->getTagRow($tagId, $result) === null) {
             return $result;
         }
 
-        $tag = $this->getTagRow($tagId, $result);
-        if ($tag === null) {
-            return $result;
-        }
-
-        $connection = FeatureTable::getEntity()->getConnection();
-        $sqlHelper = $connection->getSqlHelper();
-        $featureTable = $sqlHelper->quote(FeatureTable::getTableName());
-        $tagField = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
-        $connection->queryExecute("UPDATE {$featureTable} SET {$tagField} = NULL WHERE {$tagField} = {$tagId}");
+        $this->detachTagFromFlags($tagId);
 
         $deleteResult = FeatureTagTable::delete($tagId);
         if (!$deleteResult->isSuccess()) {
-            $this->appendResultErrors($result, $deleteResult);
+            $this->errorMapper->appendErrors($result, $deleteResult);
             return $result;
         }
 
@@ -428,13 +353,16 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
-     * @inheritDoc
+     * Возвращает список зарегистрированных стратегий доступа.
+     *
+     * @return Result{items: array<int, array<string, mixed>>} Результат со списком стратегий.
      */
     public function strategyList(): Result
     {
         $result = new Result();
 
         try {
+            /** @var array<int, array<string, mixed>> $items */
             $items = [];
 
             foreach (ServiceProvider::getStrategyRegistry()->getAll() as $strategy) {
@@ -455,56 +383,66 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
-     * Валидирует данные формы фича-флага.
+     * Создаёт успешный Result с данными.
      *
-     * @param Result $result
-     * @param FlagInfo $flag
-     * @return void
+     * @param array<string, mixed> $data Данные результата.
+     * @return Result Результат с установленными данными.
      */
-    private function validatePayload(Result $result, FlagInfo $flag): void
+    private function success(array $data): Result
     {
-        if ($flag->code === '') {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
-        } elseif (!preg_match(self::CODE_PATTERN, $flag->code)) {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_CODE'));
-        } elseif (mb_strlen($flag->code) > 255) {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_CODE_TOO_LONG'));
-        }
-
-        if ($flag->name === '') {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_NAME'));
-        } elseif (mb_strlen($flag->name) > 255) {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_NAME_TOO_LONG'));
-        }
-
-        if (mb_strlen($flag->description) > 5000) {
-            $this->addFieldError(
-                $result,
-                self::FIELD_DESCRIPTION,
-                (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_DESCRIPTION_TOO_LONG'),
-            );
-        }
-
-        if ($flag->enabled === null) {
-            $this->addFieldError($result, self::FIELD_ENABLED, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
-        }
-
-        if ($flag->tagId !== null && !$this->isTagExists($flag->tagId)) {
-            $this->addFieldError($result, self::FIELD_TAG_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
-        }
+        return (new Result())->setData($data);
     }
 
     /**
-     * Ищет запись фича-флага по коду.
+     * Нормализует символьный код фича-флага.
      *
-     * @param string $code
-     * @param Result $result
-     * @return array<string, mixed>|null
+     * @param string $code Исходный код.
+     * @return string Код без внешних пробелов.
      */
-    private function getFlagRow(string $code, Result $result): ?array
+    private function normalizeCode(string $code): string
+    {
+        return trim($code);
+    }
+
+    /**
+     * Проверяет символьный код фича-флага и добавляет ошибку в Result при невалидном значении.
+     *
+     * @param Result $result Результат операции.
+     * @param string $code Символьный код фича-флага.
+     * @return bool true, если код валиден.
+     */
+    private function validateCode(Result $result, string $code): bool
     {
         if ($code === '') {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
+            return false;
+        }
+
+        if (mb_strlen($code) > self::MAX_CODE_LENGTH) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_CODE_TOO_LONG'));
+            return false;
+        }
+
+        if (!preg_match(self::CODE_PATTERN, $code)) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_CODE'));
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Ищет ORM-строку фича-флага по символьному коду.
+     *
+     * @param string $code Символьный код фича-флага.
+     * @return array<string, mixed>|null ORM-строка или null, если флаг не найден.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
+     */
+    private function findFlagRow(string $code): ?array
+    {
+        if ($code === '') {
             return null;
         }
 
@@ -513,490 +451,165 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ->where(FeatureTable::FIELD_CODE, $code)
             ->fetch();
 
-        if ($row === false) {
-            $this->addFieldError($result, self::FIELD_CODE, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_NOT_FOUND'));
-            return null;
-        }
-
-        return $row;
+        return is_array($row) ? $row : null;
     }
 
     /**
-     * @param array<int, array<string, mixed>> $rows
-     * @return array<int, array<string, mixed>>
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
+     * Загружает свежую ORM-строку фича-флага и устанавливает её в Result.
+     *
+     * @param Result $result Результат операции с фича-флагом.
+     * @param string $code Символьный код фича-флага.
+     * @return Result Результат с данными флага, если флаг найден.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
-    private function prepareFlags(array $rows): array
+    private function withFreshFlagData(Result $result, string $code): Result
     {
-        $userIds = [];
-        $tagIds = [];
-        foreach ($rows as $row) {
-            $createdBy = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0);
-            if ($createdBy > 0) {
-                $userIds[] = $createdBy;
-            }
-
-            $tagId = (int)($row[FeatureTable::FIELD_TAG_ID] ?? 0);
-            if ($tagId > 0) {
-                $tagIds[] = $tagId;
-            }
+        $row = $this->findFlagRow($this->normalizeCode($code));
+        if ($row === null) {
+            return $result;
         }
 
-        $users = $this->loadUsers($userIds);
-        $tags = $this->loadTags($tagIds);
-        $items = [];
-
-        foreach ($rows as $row) {
-            $createdById = (int)($row[FeatureTable::FIELD_CREATED_BY] ?? 0);
-            $creator = $users[$createdById] ?? null;
-            $tagId = (int)($row[FeatureTable::FIELD_TAG_ID] ?? 0);
-            $tagName = $tagId > 0 ? ($tags[$tagId]['NAME'] ?? '') : '';
-            $removePlannedAt = $row[FeatureTable::REMOVE_PLANNED_AT]?->format('d.m.Y') ?? '';
-
-            $items[] = [
-                'code' => (string)($row[FeatureTable::FIELD_CODE] ?? ''),
-                'name' => (string)($row[FeatureTable::FIELD_NAME] ?? ''),
-                'description' => (string)($row[FeatureTable::FIELD_DESCRIPTION] ?? ''),
-                'enabled' => $this->normalizeEnabled($row[FeatureTable::FIELD_ENABLED] ?? false),
-                'tagId' => $tagId > 0 ? $tagId : null,
-                'tag' => [
-                    'id' => $tagId > 0 ? $tagId : null,
-                    'name' => $tagName,
-                ],
-                'strategies' => $this->decodeStrategies((string)($row[FeatureTable::FIELD_STRATEGIES] ?? '')),
-                'createdAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_CREATE] ?? null),
-                'updatedAt' => $this->formatDate($row[FeatureTable::FIELD_DATE_UPDATE] ?? null),
-                'removePlannedAt' => $removePlannedAt,
-                'createdBy' => [
-                    'id' => $createdById,
-                    'title' => $creator !== null ? $this->formatUserTitle($creator) : '',
-                    'url' => $createdById > 0
-                        ? '/bitrix/admin/user_edit.php?lang=' . rawurlencode(LANGUAGE_ID) . '&ID=' . $createdById
-                        : '',
-                ],
-
-            ];
-        }
-
-        return $items;
+        return $this->withFlagData($result, $row);
     }
 
     /**
-     * @param int[] $userIds
-     * @return array<int, array<string, mixed>>
-     * @throws ArgumentException
-     * @throws ObjectPropertyException
-     * @throws SystemException
+     * Устанавливает ORM-строку фича-флага в Result в формате API.
+     *
+     * @param Result $result Результат операции с фича-флагом.
+     * @param array<string, mixed> $row ORM-строка фича-флага.
+     * @return Result Результат с подготовленным флагом.
+     * @throws ArgumentException При ошибке ORM-запроса связанных данных.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств связанных данных.
+     * @throws SystemException При системной ошибке ORM.
      */
-    private function loadUsers(array $userIds): array
+    private function withFlagData(Result $result, array $row): Result
     {
-        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
-        if ($userIds === []) {
-            return [];
-        }
-
-        $map = [];
-        $result = UserTable::getList([
-            'filter' => ['@ID' => $userIds],
-            'select' => ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'LOGIN'],
+        return $result->setData([
+            'flag' => $this->presenter->presentFlag($row),
         ]);
-
-        while ($user = $result->fetch()) {
-            $map[(int)$user['ID']] = $user;
-        }
-
-        return $map;
     }
 
     /**
-     * @param int[] $tagIds
-     * @return array<int, array<string, mixed>>
-     */
-    private function loadTags(array $tagIds): array
-    {
-        $tagIds = array_values(array_unique(array_filter(array_map('intval', $tagIds))));
-        if ($tagIds === []) {
-            return [];
-        }
-
-        $map = [];
-        $result = FeatureTagTable::query()
-            ->setSelect([
-                FeatureTagTable::FIELD_ID,
-                FeatureTagTable::FIELD_NAME,
-            ])
-            ->whereIn(FeatureTagTable::FIELD_ID, $tagIds)
-            ->exec();
-
-        while ($tag = $result->fetch()) {
-            $map[(int)$tag[FeatureTagTable::FIELD_ID]] = $tag;
-        }
-
-        return $map;
-    }
-
-    /**
-     * Формирует отображаемое имя пользователя в формате `[{ID}] {FIO}`.
+     * Преобразует входное значение активности в bool или null.
      *
-     * @param array<string, mixed> $user
-     * @return string
+     * @param bool|int|float|string|null $value Значение активности из HTTP/API.
+     * @return bool|null Нормализованное значение или null при невалидном входе.
      */
-    private function formatUserTitle(array $user): string
-    {
-        $id = (int)($user['ID'] ?? 0);
-        $fio = trim(implode(' ', array_filter([
-            (string)($user['LAST_NAME'] ?? ''),
-            (string)($user['NAME'] ?? ''),
-            (string)($user['SECOND_NAME'] ?? ''),
-        ])));
-
-        if ($fio === '') {
-            $fio = trim((string)($user['LOGIN'] ?? ''));
-        }
-
-        if ($fio === '') {
-            $fio = (string)$id;
-        }
-
-        return sprintf('[%d] %s', $id, $fio);
-    }
-
-    /**
-     * Форматирует дату под API-ответ админки.
-     *
-     * @param mixed $value
-     * @return string
-     */
-    private function formatDate(mixed $value): string
-    {
-        if ($value instanceof DateTime) {
-            return $value->format('d.m.Y H:i:s');
-        }
-
-        if ($value instanceof Date) {
-            return $value->format('d.m.Y');
-        }
-
-        return is_string($value) ? $value : '';
-    }
-
-    /**
-     * Преобразует значение активности из ORM в bool.
-     *
-     * @param mixed $value
-     * @return bool
-     */
-    private function normalizeEnabled(mixed $value): bool
-    {
-        return $value === true || $value === 1 || $value === '1' || $value === 'Y';
-    }
-
-    /**
-     * Проверяет и доинициализирует схему для тегов при обновлении модуля.
-     *
-     * @param Result $result
-     * @return bool
-     */
-    private function ensureSchema(Result $result): bool
-    {
-        if ($this->isSchemaInitialized) {
-            return true;
-        }
-
-        try {
-            $connection = FeatureTable::getEntity()->getConnection();
-
-            $tagTableName = FeatureTagTable::getTableName();
-            if (!$connection->isTableExists($tagTableName)) {
-                FeatureTagTable::getEntity()->createDbTable();
-            }
-
-            $featureTableName = FeatureTable::getTableName();
-            if (!$connection->isTableExists($featureTableName)) {
-                FeatureTable::getEntity()->createDbTable();
-            } else {
-                $fields = array_change_key_case($connection->getTableFields($featureTableName), CASE_UPPER);
-                if (!isset($fields[FeatureTable::FIELD_TAG_ID])) {
-                    $sqlHelper = $connection->getSqlHelper();
-                    $tableSql = $sqlHelper->quote($featureTableName);
-                    $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
-                    $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} int(11) NULL");
-                }
-
-                if (!isset($fields[FeatureTable::FIELD_STRATEGIES])) {
-                    $sqlHelper = $connection->getSqlHelper();
-                    $tableSql = $sqlHelper->quote($featureTableName);
-                    $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_STRATEGIES);
-                    $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} text NULL");
-                }
-            }
-        } catch (Throwable $exception) {
-            $result->addError(new Error(
-                (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_SCHEMA_INIT') ?: $exception->getMessage(),
-            ));
-            return false;
-        }
-
-        $this->isSchemaInitialized = true;
-        return true;
-    }
-
-    /**
-     * Преобразует входной флаг активности в bool или null (если значение невалидно).
-     *
-     * @param mixed $value
-     * @return bool|null
-     */
-    private function parseBoolean(mixed $value): ?bool
+    private function parseBoolean(bool|int|float|string|null $value): ?bool
     {
         if (is_bool($value)) {
             return $value;
         }
 
         if (is_int($value)) {
-            if ($value === 1) {
-                return true;
-            }
-
-            if ($value === 0) {
-                return false;
-            }
-
-            return null;
+            return match ($value) {
+                1 => true,
+                0 => false,
+                default => null,
+            };
         }
 
         if (is_float($value)) {
-            if ($value === 1.0) {
-                return true;
-            }
-
-            if ($value === 0.0) {
-                return false;
-            }
-
-            return null;
+            return match ($value) {
+                1.0 => true,
+                0.0 => false,
+                default => null,
+            };
         }
 
         if (is_string($value)) {
-            $normalized = mb_strtolower(trim($value));
-            if (in_array($normalized, ['1', 'y', 'yes', 'true', 'on'], true)) {
-                return true;
-            }
-
-            if (in_array($normalized, ['0', 'n', 'no', 'false', 'off', ''], true)) {
-                return false;
-            }
-
-            return null;
-        }
-
-        if ($value === null) {
-            return null;
+            return match (mb_strtolower(trim($value))) {
+                '1', 'y', 'yes', 'true', 'on' => true,
+                '0', 'n', 'no', 'false', 'off', '' => false,
+                default => null,
+            };
         }
 
         return null;
     }
 
     /**
-     * Преобразует входной идентификатор тега в int|null.
+     * Нормализует название тега.
      *
-     * @param string $value
-     * @return int|null
+     * @param string $name Исходное название тега.
+     * @return string Название без внешних пробелов.
      */
-    private function parseTagId(string $value): ?int
+    private function normalizeTagName(string $name): string
     {
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-
-        $tagId = (int)$value;
-        return $tagId > 0 ? $tagId : null;
+        return trim($name);
     }
 
     /**
-     * Валидирует и нормализует стратегии доступа.
+     * Проверяет название тега и добавляет ошибку в Result при невалидном значении.
      *
-     * @param mixed $value
-     * @return Result{strategies: array<int, array<string, mixed>>}
+     * @param Result $result Результат операции.
+     * @param string $name Название тега.
+     * @return bool true, если название валидно.
      */
-    private function normalizeStrategies(mixed $value): Result
-    {
-        $result = new Result();
-        $items = $this->parseStrategyItems($value);
-
-        if ($items === null) {
-            $this->addFieldError($result, self::FIELD_STRATEGIES, 'Некорректный формат стратегий доступа');
-            return $result;
-        }
-
-        if ($items === []) {
-            return $result->setData([
-                'strategies' => [],
-            ]);
-        }
-
-        try {
-            $registry = ServiceProvider::getStrategyRegistry();
-        } catch (Throwable $exception) {
-            return $result->addError(new Error($exception->getMessage()));
-        }
-
-        $normalized = [];
-        foreach ($items as $item) {
-            if (!is_array($item)) {
-                $this->addFieldError($result, self::FIELD_STRATEGIES, 'Некорректный формат стратегии доступа');
-                continue;
-            }
-
-            $type = trim((string)($item['type'] ?? ''));
-            $config = $item['config'] ?? [];
-
-            if ($type === '') {
-                $this->addFieldError($result, self::FIELD_STRATEGIES, 'Не выбран тип стратегии доступа');
-                continue;
-            }
-
-            if (!is_array($config)) {
-                $this->addFieldError($result, self::FIELD_STRATEGIES, 'Некорректная конфигурация стратегии доступа');
-                continue;
-            }
-
-            $strategy = $registry->get($type);
-            if ($strategy === null) {
-                $this->addFieldError($result, self::FIELD_STRATEGIES, "Стратегия `{$type}` не зарегистрирована");
-                continue;
-            }
-
-            $strategyResult = $strategy->normalizeConfig($config);
-            if (!$strategyResult->isSuccess()) {
-                foreach ($strategyResult->getErrors() as $error) {
-                    $this->addFieldError(
-                        $result,
-                        self::FIELD_STRATEGIES,
-                        $strategy->getName() . ': ' . $error->getMessage(),
-                    );
-                }
-
-                continue;
-            }
-
-            $normalizedConfig = $strategyResult->getData()['config'] ?? [];
-            if (!is_array($normalizedConfig)) {
-                $this->addFieldError($result, self::FIELD_STRATEGIES, "Стратегия `{$type}` вернула некорректную конфигурацию");
-                continue;
-            }
-
-            $normalized[] = [
-                'type' => $type,
-                'config' => $normalizedConfig,
-            ];
-        }
-
-        if (!$result->isSuccess()) {
-            return $result;
-        }
-
-        return $result->setData([
-            'strategies' => $normalized,
-        ]);
-    }
-
-    /**
-     * Преобразует входное значение стратегий в список элементов.
-     *
-     * @param mixed $value
-     * @return array<int, mixed>|null
-     */
-    private function parseStrategyItems(mixed $value): ?array
-    {
-        if ($value === null || $value === '') {
-            return [];
-        }
-
-        if (is_string($value)) {
-            try {
-                $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                return null;
-            }
-        }
-
-        if (!is_array($value) || !array_is_list($value)) {
-            return null;
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<int, array<string, mixed>> $strategies
-     * @return string
-     */
-    private function encodeStrategies(array $strategies): string
-    {
-        try {
-            return json_encode($strategies, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return '[]';
-        }
-    }
-
-    /**
-     * Декодирует JSON-конфигурацию стратегий.
-     *
-     * @param string $value JSON-строка из БД
-     * @return array<int, array{type: string, config: array<string, mixed>}>
-     */
-    private function decodeStrategies(string $value): array
-    {
-        $items = $this->parseStrategyItems(trim($value));
-        if ($items === null) {
-            return [];
-        }
-
-        $result = [];
-        foreach ($items as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-
-            $type = trim((string)($item['type'] ?? ''));
-            $config = $item['config'] ?? [];
-
-            if ($type === '' || !is_array($config)) {
-                continue;
-            }
-
-            $result[] = [
-                'type' => $type,
-                'config' => $config,
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * @param Result $result
-     * @param string $name
-     * @return void
-     */
-    private function validateTagName(Result $result, string $name): void
+    private function validateTagName(Result $result, string $name): bool
     {
         if ($name === '') {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_TAG_NAME'));
-        } elseif (mb_strlen($name) > 255) {
-            $this->addFieldError($result, self::FIELD_NAME, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NAME_TOO_LONG'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_TAG_NAME'));
+            return false;
         }
+
+        if (mb_strlen($name) > self::MAX_TAG_NAME_LENGTH) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NAME_TOO_LONG'));
+            return false;
+        }
+
+        return true;
     }
 
     /**
-     * @param int $tagId
-     * @param Result $result
-     * @return array<string, mixed>|null
+     * Преобразует идентификатор тега из строки запроса.
+     *
+     * @param Result $result Результат операции.
+     * @param string $id Идентификатор тега из API.
+     * @return int|null Положительный идентификатор или null при ошибке.
+     */
+    private function parseTagId(Result $result, string $id): ?int
+    {
+        $tagId = (int)trim($id);
+        if ($tagId <= 0) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+            return null;
+        }
+
+        return $tagId;
+    }
+
+    /**
+     * Проверяет, занято ли название тега.
+     *
+     * @param string $name Название тега.
+     * @param int|null $exceptTagId Идентификатор тега, который нужно исключить из проверки.
+     * @return bool true, если название уже занято другим тегом.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
+     */
+    private function isTagNameBusy(string $name, ?int $exceptTagId = null): bool
+    {
+        $tag = $this->findTagByName($name);
+        if ($tag === null) {
+            return false;
+        }
+
+        return $exceptTagId === null || (int)$tag[FeatureTagTable::FIELD_ID] !== $exceptTagId;
+    }
+
+    /**
+     * Загружает ORM-строку тега по идентификатору.
+     *
+     * @param int $tagId Идентификатор тега.
+     * @param Result $result Результат операции для записи ошибки, если тег не найден.
+     * @return array<string, mixed>|null ORM-строка тега или null.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     private function getTagRow(int $tagId, Result $result): ?array
     {
@@ -1008,8 +621,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ->where(FeatureTagTable::FIELD_ID, $tagId)
             ->fetch();
 
-        if ($row === false) {
-            $this->addFieldError($result, self::FIELD_ID, (string)Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
+        if (!is_array($row)) {
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
             return null;
         }
 
@@ -1017,8 +630,13 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
-     * @param string $name
-     * @return array<string, mixed>|null
+     * Ищет ORM-строку тега по названию.
+     *
+     * @param string $name Название тега.
+     * @return array<string, mixed>|null ORM-строка тега или null.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
      */
     private function findTagByName(string $name): ?array
     {
@@ -1030,102 +648,59 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ->where(FeatureTagTable::FIELD_NAME, $name)
             ->fetch();
 
-        return $row === false ? null : $row;
+        return is_array($row) ? $row : null;
     }
 
     /**
-     * @param int $tagId
-     * @return bool
-     */
-    private function isTagExists(int $tagId): bool
-    {
-        return FeatureTagTable::query()
-            ->setSelect([FeatureTagTable::FIELD_ID])
-            ->where(FeatureTagTable::FIELD_ID, $tagId)
-            ->setLimit(1)
-            ->fetch() !== false;
-    }
-
-    /**
-     * Копирует ошибки из внутреннего Result в результирующий Result API.
+     * Устанавливает свежие данные тега в Result.
      *
-     * @param Result $target
-     * @param Result $source
+     * @param Result $result Результат операции с тегом.
+     * @param int $tagId Идентификатор тега.
+     * @return Result Результат с подготовленным тегом, если тег найден.
+     * @throws ArgumentException При ошибке ORM-запроса.
+     * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
+     * @throws SystemException При системной ошибке ORM.
+     */
+    private function withTagData(Result $result, int $tagId): Result
+    {
+        $tag = $this->getTagRow($tagId, $result);
+        if ($tag === null) {
+            return $result;
+        }
+
+        return $result->setData([
+            'tag' => $this->presenter->presentTag($tag),
+        ]);
+    }
+
+    /**
+     * Снимает удаляемый тег со всех фича-флагов.
+     *
+     * @param int $tagId Идентификатор удаляемого тега.
      * @return void
+     * @throws ArgumentException При ошибке ORM-entity.
+     * @throws SystemException При системной ошибке ORM.
      */
-    private function appendResultErrors(Result $target, Result $source): void
+    private function detachTagFromFlags(int $tagId): void
     {
-        foreach ($source->getErrors() as $error) {
-            $customData = $error->getCustomData();
-            if (!is_array($customData)) {
-                $customData = [];
-            }
+        $connection = FeatureTable::getEntity()->getConnection();
+        $sqlHelper = $connection->getSqlHelper();
+        $featureTable = $sqlHelper->quote(FeatureTable::getTableName());
+        $tagField = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
 
-            $field = $customData['field'] ?? null;
-            if (!is_string($field) || $field === '') {
-                $field = $this->guessFieldFromErrorMessage($error->getMessage());
-                if ($field !== null) {
-                    $customData['field'] = $field;
-                }
-            }
-
-            $target->addError(new Error($error->getMessage(), (string)$error->getCode(), $customData));
-        }
+        $connection->queryExecute("UPDATE {$featureTable} SET {$tagField} = NULL WHERE {$tagField} = {$tagId}");
     }
 
     /**
-     * Добавляет ошибку, привязанную к полю формы.
+     * Возвращает локализованное сообщение по коду.
      *
-     * @param Result $result
-     * @param string $field
-     * @param string $message
-     * @param string|int $code
-     * @return void
+     * @param string $code Код сообщения Loc.
+     * @return string Текст сообщения или код, если перевод не найден.
      */
-    private function addFieldError(Result $result, string $field, string $message, string|int $code = ''): void
+    private function message(string $code): string
     {
-        $result->addError(new Error($message, (string)$code, ['field' => $field]));
-    }
+        $message = Loc::getMessage($code);
 
-    /**
-     * Пытается определить поле формы по тексту системной ошибки.
-     *
-     * @param string $message
-     * @return string|null
-     */
-    private function guessFieldFromErrorMessage(string $message): ?string
-    {
-        $normalized = mb_strtolower($message);
-
-        if (
-            str_contains($normalized, 'тег')
-            || str_contains($normalized, 'tag')
-            || str_contains($normalized, 'идентификатор')
-            || str_contains($normalized, 'id')
-        ) {
-            return self::FIELD_TAG_ID;
-        }
-
-        if (str_contains($normalized, 'код') || str_contains($normalized, 'code')) {
-            return self::FIELD_CODE;
-        }
-
-        if (str_contains($normalized, 'назван') || str_contains($normalized, 'name')) {
-            return self::FIELD_NAME;
-        }
-
-        if (str_contains($normalized, 'описан') || str_contains($normalized, 'description')) {
-            return self::FIELD_DESCRIPTION;
-        }
-
-        if (str_contains($normalized, 'enabled') || str_contains($normalized, 'статус')) {
-            return self::FIELD_ENABLED;
-        }
-
-        if (str_contains($normalized, 'стратег') || str_contains($normalized, 'strategy')) {
-            return self::FIELD_STRATEGIES;
-        }
-
-        return null;
+        return is_string($message) ? $message : $code;
     }
 }

@@ -57,11 +57,7 @@ final readonly class UserIdRule implements RuleInterface
      */
     public function isSupported(string $code): bool
     {
-        if ($this->supportedCodes === []) {
-            return true;
-        }
-
-        return in_array($code, $this->supportedCodes, true);
+        return empty($this->supportedCodes) || in_array($code, $this->supportedCodes, true);
     }
 
     /**
@@ -77,17 +73,13 @@ final readonly class UserIdRule implements RuleInterface
      */
     public function isEnabled(string $code): bool
     {
-        if ($this->userIds === []) {
+        if (empty($this->userIds)) {
             return false;
         }
 
         $currentUserId = $this->getCurrentUserId();
 
-        if ($currentUserId <= 0) {
-            return false;
-        }
-
-        return in_array($currentUserId, $this->userIds, true);
+        return $currentUserId > 0 && in_array($currentUserId, $this->userIds, true);
     }
 
     /**
@@ -107,11 +99,11 @@ final readonly class UserIdRule implements RuleInterface
             $id = (int)$id;
 
             if ($id > 0) {
-                $result[$id] = $id;
+                $result[] = $id;
             }
         }
 
-        return array_values($result);
+        return $result;
     }
 
     /**
@@ -125,10 +117,6 @@ final readonly class UserIdRule implements RuleInterface
     {
         global $USER;
 
-        if (is_object($USER) && method_exists($USER, 'GetID')) {
-            return (int)$USER->GetID();
-        }
-
-        return 0;
+        return $USER ? $USER->GetID() : 0;
     }
 }

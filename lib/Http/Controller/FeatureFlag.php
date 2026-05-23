@@ -2,7 +2,7 @@
 
 namespace Sholokhov\Featureflag\Http\Controller;
 
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
 use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
@@ -70,8 +70,8 @@ final class FeatureFlag extends Controller
                 static fn() => ServiceProvider::getAdminFeatureFlagService(),
             ),
             new ValidationParameter(
-                FlagInfo::class,
-                static fn() => FlagInfo::fromRequest($request),
+                FeatureFlagPayload::class,
+                static fn() => FeatureFlagPayload::fromRequest($request),
                 $addValidationErrors,
             ),
             new ValidationParameter(
@@ -127,11 +127,11 @@ final class FeatureFlag extends Controller
     /**
      * Создаёт фича-флаг.
      *
-     * @param FlagInfo|null $request
+     * @param FeatureFlagPayload|null $request
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function createAction(?FlagInfo $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function createAction(?FeatureFlagPayload $request, AdminFeatureFlagServiceInterface $service): ?array
     {
         if ($request === null) {
             return null;
@@ -145,11 +145,11 @@ final class FeatureFlag extends Controller
     /**
      * Обновляет фича-флаг.
      *
-     * @param FlagInfo|null $request
+     * @param FeatureFlagPayload|null $request
      * @param AdminFeatureFlagServiceInterface $service
      * @return array<string, mixed>|null
      */
-    public function updateAction(?FlagInfo $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function updateAction(?FeatureFlagPayload $request, AdminFeatureFlagServiceInterface $service): ?array
     {
         if ($request === null) {
             return null;

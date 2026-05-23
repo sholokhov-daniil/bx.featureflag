@@ -2,21 +2,21 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
-use Bitrix\Main\Type\Date;
 use Throwable;
 
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\ORM\FeatureTable;
-use Sholokhov\Featureflag\ORM\FeatureTagTable;
 
 use Bitrix\Main\Error;
-use Bitrix\Main\DB\DuplicateEntryException;
-use Bitrix\Main\EventManager;
+use Bitrix\Main\Type\Date;
 use Bitrix\Main\ORM\Event;
-use Bitrix\Main\ORM\Objectify\EntityObject;
+use Bitrix\Main\EventManager;
 use Bitrix\Main\ORM\Data\AddResult;
+use Bitrix\Main\ORM\Data\UpdateResult;
+use Bitrix\Main\ORM\Objectify\EntityObject;
+use Bitrix\Main\DB\DuplicateEntryException;
 
 /**
  * Репозиторий фича-флагов
@@ -73,22 +73,34 @@ class FeatureRepository implements FeatureRepositoryInterface
     /**
      * Создаёт новый фича-флаг
      *
-     * Добавляет запись в ORM-таблицу фича-флагов на основе DTO {@see FlagInfo}.
+     * Добавляет запись в ORM-таблицу фича-флагов на основе DTO {@see FeatureFlagPayload}.
      *
-     * @param FlagInfo $flag DTO с данными создаваемого флага
+     * @param FeatureFlagPayload $flag DTO с данными создаваемого флага
      *
      * @return AddResult Результат добавления записи
      *
      */
-    public function create(FlagInfo $flag): AddResult
+    public function create(FeatureFlagPayload $flag): AddResult
     {
+        $flagInfo = clone $flag;
+        $flagInfo->code = trim($flagInfo->code);
+        $flagInfo->name = trim($flagInfo->name);
+        $flagInfo->description = trim($flagInfo->description);
+
         try {
+            $validate = $flagInfo->validate();
+            if (!$validate->isSuccess()) {
+                return (new AddResult)->addErrors($validate->getErrors());
+            }
+
             return FeatureTable::add([
-                FeatureTable::FIELD_CODE => $flag->code,
-                FeatureTable::FIELD_NAME => $flag->name,
-                FeatureTable::FIELD_DESCRIPTION => $flag->description,
-                FeatureTable::FIELD_ENABLED => $flag->enabled,
-                FeatureTable::REMOVE_PLANNED_AT => $flag->removePlannedAt ? new Date($flag->removePlannedAt, 'd.m.Y') : null,
+                FeatureTable::FIELD_CODE => $flagInfo->code,
+                FeatureTable::FIELD_NAME => $flagInfo->name,
+                FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
+                FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
+                FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
+                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt, 'd.m.Y') : null,
+                FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
 
             ]);
         } catch (DuplicateEntryException) {
@@ -99,6 +111,41 @@ class FeatureRepository implements FeatureRepositoryInterface
         } catch (Throwable $exception) {
             return (new AddResult())
                 ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
+        }
+    }
+
+    /**
+     * Обновление существующего флага
+     *
+     * @param FeatureFlagPayload $payload
+     * @return UpdateResult
+     */
+    public function update(FeatureFlagPayload $payload): UpdateResult
+    {
+        $flagInfo = clone $payload;
+        $flagInfo->code = trim($flagInfo->code);
+        $flagInfo->name = trim($flagInfo->name);
+        $flagInfo->description = trim($flagInfo->description);
+
+
+        try {
+            $validate = $flagInfo->validate();
+            if (!$validate->isSuccess()) {
+                return (new UpdateResult)->addErrors($validate->getErrors());
+            }
+
+            return FeatureTable::update($flagInfo->code, [
+                FeatureTable::FIELD_NAME => $flagInfo->name,
+                FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
+                FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
+                FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
+                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt, 'd.m.Y') : null,
+                FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
+
+            ]);
+        } catch (Throwable $exception) {
+            return (new UpdateResult)
+                ->addError(new Error('Ошибка при обновлении фича-флага: ' . $exception->getMessage()));
         }
     }
 
@@ -126,8 +173,6 @@ class FeatureRepository implements FeatureRepositoryInterface
     private function load(): void
     {
         try {
-            $this->ensureSchema();
-
             $this->cache = [];
             $factory = ServiceProvider::getFeatureFactory();
 
@@ -142,40 +187,6 @@ class FeatureRepository implements FeatureRepositoryInterface
             }
         } catch (Throwable $exception) {
             AddMessage2Log('Ошибка загрузки флагов: ' . $exception->getMessage());
-        }
-    }
-
-    /**
-     * Доинициализирует новые поля при обновлении уже установленного модуля.
-     */
-    private function ensureSchema(): void
-    {
-        $connection = FeatureTable::getEntity()->getConnection();
-        $tableName = FeatureTable::getTableName();
-
-        if (!$connection->isTableExists($tableName)) {
-            FeatureTable::getEntity()->createDbTable();
-            return;
-        }
-
-        $fields = array_change_key_case($connection->getTableFields($tableName), CASE_UPPER);
-
-        $sqlHelper = $connection->getSqlHelper();
-        $tableSql = $sqlHelper->quote($tableName);
-
-        if (!isset($fields[FeatureTable::FIELD_TAG_ID])) {
-            $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_TAG_ID);
-            $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} int(11) NULL");
-        }
-
-        if (!isset($fields[FeatureTable::FIELD_STRATEGIES])) {
-            $fieldSql = $sqlHelper->quote(FeatureTable::FIELD_STRATEGIES);
-            $connection->queryExecute("ALTER TABLE {$tableSql} ADD {$fieldSql} text NULL");
-        }
-
-        $tagTableName = FeatureTagTable::getTableName();
-        if (!$connection->isTableExists($tagTableName)) {
-            FeatureTagTable::getEntity()->createDbTable();
         }
     }
 

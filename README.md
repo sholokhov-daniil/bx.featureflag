@@ -270,10 +270,10 @@ Loader::includeModule('sholokhov.featureflag');
 ## Регистрация feature flag
 
 ```php
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Feature;
 
-Feature::register(new FlagInfo(
+Feature::register(new FeatureFlagPayload(
     code: 'crm.application.v2',
     name: 'Новая карточка заявки',
     description: 'Переключатель новой версии карточки заявки',
@@ -384,10 +384,10 @@ if (Feature::all([
 ## Feature::register()
 
 ```php
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Feature;
 
-$result = Feature::register(new FlagInfo(
+$result = Feature::register(new FeatureFlagPayload(
     code: 'personal.cabinet.v2',
     name: 'Новый личный кабинет',
     description: 'Переключение новой версии личного кабинета',
@@ -784,14 +784,14 @@ Runtime-правила:
 
 ```php
 use Bitrix\Main\Loader;
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Feature;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\Rules\IsAdminRule;
 
 Loader::includeModule('sholokhov.featureflag');
 
-Feature::register(new FlagInfo(
+Feature::register(new FeatureFlagPayload(
     code: 'crm.application.v2',
     name: 'Новая CRM карточка',
     description: 'Новая версия CRM карточки',

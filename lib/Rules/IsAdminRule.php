@@ -43,11 +43,7 @@ final readonly class IsAdminRule implements RuleInterface
      */
     public function isSupported(string $code): bool
     {
-        if ($this->supportedCodes === []) {
-            return true;
-        }
-
-        return in_array($code, $this->supportedCodes, true);
+        return empty($this->supportedCodes) || in_array($code, $this->supportedCodes, true);
     }
 
     /**
@@ -59,9 +55,6 @@ final readonly class IsAdminRule implements RuleInterface
     public function isEnabled(string $code): bool
     {
         global $USER;
-
-        return is_object($USER)
-            && method_exists($USER, 'IsAdmin')
-            && $USER->IsAdmin();
+        return $USER && $USER->IsAdmin();
     }
 }

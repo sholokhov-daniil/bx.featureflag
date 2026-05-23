@@ -2,10 +2,11 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
-use Sholokhov\Featureflag\DTO\FlagInfo;
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\FeatureInterface;
 
 use Bitrix\Main\ORM\Data\AddResult;
+use Bitrix\Main\ORM\Data\UpdateResult;
 
 /**
  * Хранилище зарегистрированных флагов в системе
@@ -24,10 +25,18 @@ interface FeatureRepositoryInterface
     /**
      * Создание нового флага
      *
-     * @param FlagInfo $flag
+     * @param FeatureFlagPayload $flag
      * @return AddResult
      */
-    public function create(FlagInfo $flag): AddResult;
+    public function create(FeatureFlagPayload $flag): AddResult;
+
+    /**
+     * Обновление существующего флага
+     *
+     * @param FeatureFlagPayload $payload
+     * @return UpdateResult
+     */
+    public function update(FeatureFlagPayload $payload): UpdateResult;
 
     /**
      * Сброс текущего кеша
