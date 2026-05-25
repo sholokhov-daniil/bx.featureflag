@@ -14,9 +14,9 @@ class TextField extends AbstractField
     /**
      * Маска значения
      *
-     * @var string
+     * @var array<string, mixed>|string
      */
-    protected string $mask = '';
+    protected array|string $mask = '';
 
     /**
      * Возвращает подсказку
@@ -43,9 +43,9 @@ class TextField extends AbstractField
     /**
      * Возвращает маску значения
      *
-     * @return string
+     * @return array<string, mixed>|string
      */
-    public function getMask(): string
+    public function getMask(): array|string
     {
         return $this->mask;
     }
@@ -53,12 +53,44 @@ class TextField extends AbstractField
     /**
      * Указать маску значения
      *
-     * @param string $mask
+     * @param array<string, mixed>|string $mask
      * @return $this
      */
-    public function setMask(string $mask): self
+    public function setMask(array|string $mask): self
     {
         $this->mask = $mask;
+        return $this;
+    }
+
+    /**
+     * Указать regex-маску значения для UI.
+     *
+     * Маска выполняется как replace(pattern, replacement), поэтому подходит
+     * для фильтрации вводимых символов без привязки UI к конкретному типу поля.
+     *
+     * @param string $pattern Регулярное выражение без ограничителей
+     * @param string $replacement Значение замены
+     * @param string $flags Флаги регулярного выражения
+     * @param string $inputMode Подсказка inputmode для браузера
+     * @return $this
+     */
+    public function setRegexMask(
+        string $pattern,
+        string $replacement = '',
+        string $flags = 'g',
+        string $inputMode = '',
+    ): self {
+        $this->mask = [
+            'type' => 'regex',
+            'pattern' => $pattern,
+            'flags' => $flags,
+            'replacement' => $replacement,
+        ];
+
+        if ($inputMode !== '') {
+            $this->mask['inputMode'] = $inputMode;
+        }
+
         return $this;
     }
 

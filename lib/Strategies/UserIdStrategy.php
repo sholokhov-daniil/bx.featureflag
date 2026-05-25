@@ -2,8 +2,10 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
-use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
 use Sholokhov\Featureflag\Field\TextareaField;
+use Sholokhov\Featureflag\Field\Validator\PositiveIntegerListValidator;
 
 /**
  * Стратегия доступа по ID пользователей.
@@ -43,34 +45,19 @@ final class UserIdStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            new TextareaField('userIds')
+            (new TextareaField('userIds'))
                 ->setName('ID пользователей')
                 ->setPlaceholder('1, 15, 42')
-                ->setRequired()
+                ->setRequired(true, 'Укажите хотя бы один ID пользователя.')
+                ->setNormalizer(static fn(mixed $value): array => ListNormalizer::positiveIntegers($value))
+                ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
+                ->addValidator(new PositiveIntegerListValidator('Некорректный ID пользователя: %s'))
         ];
-    }
-
-    /**
-     * Валидирует и нормализует список ID пользователей.
-     *
-     * @param array<string, mixed> $config
-     * @return Result
-     */
-    public function normalizeConfig(array $config): Result
-    {
-        $userIds = $this->normalizePositiveIds($config['userIds'] ?? []);
-        if ($userIds === []) {
-            return $this->error('Укажите хотя бы один ID пользователя.');
-        }
-
-        return $this->success([
-            'userIds' => $userIds,
-        ]);
     }
 
     /**

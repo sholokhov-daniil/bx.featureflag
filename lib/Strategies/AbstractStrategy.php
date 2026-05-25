@@ -4,6 +4,8 @@ namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Error;
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
 use Sholokhov\Featureflag\Strategy\FeatureStrategyInterface;
 
 /**
@@ -21,23 +23,7 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
      */
     protected function splitValues(mixed $value): array
     {
-        if (is_array($value)) {
-            $rawValues = $value;
-        } elseif (is_string($value)) {
-            $rawValues = preg_split('/[\s,;]+/', $value) ?: [];
-        } else {
-            $rawValues = [];
-        }
-
-        $result = [];
-        foreach ($rawValues as $item) {
-            $item = trim((string)$item);
-            if ($item !== '') {
-                $result[$item] = $item;
-            }
-        }
-
-        return array_values($result);
+        return ListNormalizer::strings($value);
     }
 
     /**
@@ -48,16 +34,88 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
      */
     protected function normalizePositiveIds(mixed $value): array
     {
-        $ids = [];
+        return array_values(array_filter(
+            ListNormalizer::positiveIntegers($value),
+            static fn(mixed $id): bool => is_int($id)
+        ));
+    }
 
-        foreach ($this->splitValues($value) as $item) {
-            $id = (int)$item;
-            if ($id > 0) {
-                $ids[$id] = $id;
+    /**
+     * Валидирует и нормализует конфигурацию через описание свойств стратегии.
+     *
+     * @param array<string, mixed> $config
+     * @return Result
+     */
+    public function normalizeConfig(array $config): Result
+    {
+        $result = new Result();
+        $normalizedConfig = [];
+
+        foreach ($this->getFieldsByCode() as $code => $field) {
+            $value = $field->normalizeValue($config[$code] ?? null);
+            $fieldResult = $field->validateValue($value);
+
+            if (!$fieldResult->isSuccess()) {
+                $result->addErrors($fieldResult->getErrors());
             }
+
+            $normalizedConfig[$code] = $value;
         }
 
-        return array_values($ids);
+        if (!$result->isSuccess()) {
+            return $result;
+        }
+
+        $configResult = $this->validateNormalizedConfig($normalizedConfig);
+        if (!$configResult->isSuccess()) {
+            return $configResult;
+        }
+
+        return $this->success($normalizedConfig);
+    }
+
+    /**
+     * Денормализует сохранённую конфигурацию через описание свойств стратегии.
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public function denormalizeConfig(array $config): array
+    {
+        $denormalizedConfig = $config;
+
+        foreach ($this->getFieldsByCode() as $code => $field) {
+            $denormalizedConfig[$code] = $field->denormalizeValue($config[$code] ?? null);
+        }
+
+        return $denormalizedConfig;
+    }
+
+    /**
+     * Дополнительная проверка уже нормализованной конфигурации.
+     *
+     * @param array<string, mixed> $config
+     * @return Result
+     */
+    protected function validateNormalizedConfig(array $config): Result
+    {
+        return new Result();
+    }
+
+    /**
+     * Возвращает свойства стратегии, индексированные по коду.
+     *
+     * @return array<string, FieldInterface>
+     */
+    private function getFieldsByCode(): array
+    {
+        $fields = [];
+
+        foreach ($this->getFields() as $field) {
+            $fields[$field->getCode()] = $field;
+        }
+
+        return $fields;
     }
 
     /**
@@ -68,7 +126,9 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
      */
     protected function error(string $message): Result
     {
-        return (new Result())->addError(new Error($message));
+        return (new Result())->addError(new Error($message, '', [
+            'field' => 'strategies',
+        ]));
     }
 
     /**

@@ -5,7 +5,9 @@ namespace Sholokhov\Featureflag\Strategies;
 use Bitrix\Main\Context;
 use Bitrix\Main\Result;
 use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\IpNormalizer;
 use Sholokhov\Featureflag\Field\TextField;
+use Sholokhov\Featureflag\Field\Validator\IpAddressValidator;
 
 /**
  * Стратегия доступа по диапазону IP-адресов.
@@ -50,53 +52,46 @@ final class IpRangeStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            new TextField('from')
+            (new TextField('from'))
                 ->setName('IP от')
                 ->setPlaceholder('10.0.0.1')
-                ->setRequired()
-                ->setMask('ipv4'),
+                ->setRequired(true, 'Укажите корректный начальный IP-адрес.')
+                ->setNormalizer(static fn(mixed $value): string => IpNormalizer::address($value))
+                ->setDenormalizer(static fn(mixed $value): string => (string)($value ?? ''))
+                ->addValidator(new IpAddressValidator('Укажите корректный начальный IP-адрес.'))
+                ->setRegexMask('[^0-9A-Fa-f:.]'),
 
-            new TextField('to')
+            (new TextField('to'))
                 ->setName('IP до')
                 ->setPlaceholder('255.255.255.255')
-                ->setRequired()
-                ->setMask('ipv4'),
+                ->setRequired(true, 'Укажите корректный конечный IP-адрес.')
+                ->setNormalizer(static fn(mixed $value): string => IpNormalizer::address($value))
+                ->setDenormalizer(static fn(mixed $value): string => (string)($value ?? ''))
+                ->addValidator(new IpAddressValidator('Укажите корректный конечный IP-адрес.'))
+                ->setRegexMask('[^0-9A-Fa-f:.]'),
         ];
     }
 
     /**
-     * Валидирует и нормализует границы IP-диапазона.
+     * Проверяет границы уже нормализованного IP-диапазона.
      *
      * @param array<string, mixed> $config
      * @return Result
      */
-    public function normalizeConfig(array $config): Result
+    protected function validateNormalizedConfig(array $config): Result
     {
-        $from = trim((string)($config['from'] ?? ''));
-        $to = trim((string)($config['to'] ?? ''));
+        $from = (string)($config['from'] ?? '');
+        $to = (string)($config['to'] ?? '');
 
-        $from = $this->normalizeIp($from);
-        if ($from === null) {
-            return $this->error('Укажите корректный начальный IP-адрес.');
-        }
-
-        $to = $this->normalizeIp($to);
-        if ($to === null) {
-            return $this->error('Укажите корректный конечный IP-адрес.');
-        }
-
-        if (!$this->isSameIpVersion($from, $to)) {
+        if (!IpNormalizer::isSameVersion($from, $to)) {
             return $this->error('Начальный и конечный IP должны быть одной версии.');
         }
 
-        if ($this->compareIp($from, $to) > 0) {
+        if (IpNormalizer::compare($from, $to) > 0) {
             return $this->error('Начальный IP не должен быть больше конечного.');
         }
 
-        return $this->success([
-            'from' => $from,
-            'to' => $to,
-        ]);
+        return new Result();
     }
 
     /**
@@ -108,65 +103,20 @@ final class IpRangeStrategy extends AbstractStrategy
      */
     public function isEnabled(string $featureCode, array $config): bool
     {
-        $currentIp = $this->normalizeIp($this->getCurrentIp());
-        $from = $this->normalizeIp(trim((string)($config['from'] ?? '')));
-        $to = $this->normalizeIp(trim((string)($config['to'] ?? '')));
+        $currentIp = IpNormalizer::canonical($this->getCurrentIp());
+        $from = IpNormalizer::canonical(trim((string)($config['from'] ?? '')));
+        $to = IpNormalizer::canonical(trim((string)($config['to'] ?? '')));
 
         if ($currentIp === null || $from === null || $to === null) {
             return false;
         }
 
-        if (!$this->isSameIpVersion($currentIp, $from) || !$this->isSameIpVersion($currentIp, $to)) {
+        if (!IpNormalizer::isSameVersion($currentIp, $from) || !IpNormalizer::isSameVersion($currentIp, $to)) {
             return false;
         }
 
-        return $this->compareIp($currentIp, $from) >= 0
-            && $this->compareIp($currentIp, $to) <= 0;
-    }
-
-    /**
-     * Приводит IP-адрес к каноническому виду.
-     *
-     * @param string $ip IP-адрес
-     * @return string|null
-     */
-    private function normalizeIp(string $ip): ?string
-    {
-        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-            return null;
-        }
-
-        $packed = inet_pton($ip);
-        if ($packed === false) {
-            return null;
-        }
-
-        $normalized = inet_ntop($packed);
-        return $normalized === false ? null : $normalized;
-    }
-
-    /**
-     * Проверяет, что IP-адреса относятся к одной версии протокола.
-     *
-     * @param string $left Первый IP-адрес
-     * @param string $right Второй IP-адрес
-     * @return bool
-     */
-    private function isSameIpVersion(string $left, string $right): bool
-    {
-        return strlen((string)inet_pton($left)) === strlen((string)inet_pton($right));
-    }
-
-    /**
-     * Сравнивает два IP-адреса в бинарном представлении.
-     *
-     * @param string $left Первый IP-адрес
-     * @param string $right Второй IP-адрес
-     * @return int
-     */
-    private function compareIp(string $left, string $right): int
-    {
-        return strcmp((string)inet_pton($left), (string)inet_pton($right));
+        return IpNormalizer::compare($currentIp, $from) >= 0
+            && IpNormalizer::compare($currentIp, $to) <= 0;
     }
 
     /**

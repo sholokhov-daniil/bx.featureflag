@@ -53,7 +53,23 @@ export interface StrategyField {
   mask?: StrategyFieldMask
 }
 
-export type StrategyFieldMask = 'ipv4' | 'ipv4_list'
+export interface StrategyRegexMaskRule {
+  pattern: string
+  flags?: string
+  replacement?: string
+}
+
+export interface StrategyRegexMask {
+  type: 'regex'
+  pattern?: string
+  flags?: string
+  replacement?: string
+  rules?: StrategyRegexMaskRule[]
+  inputMode?: StrategyFieldInputMode
+}
+
+export type StrategyFieldInputMode = 'none' | 'text' | 'tel' | 'url' | 'email' | 'numeric' | 'decimal' | 'search'
+export type StrategyFieldMask = StrategyRegexMask
 
 export interface StrategyTypeItem {
   code: string

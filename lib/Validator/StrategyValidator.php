@@ -29,18 +29,18 @@ class StrategyValidator
         $config = $strategy['config'] ?? [];
 
         if ($type === '') {
-            return (new Result)->addError(new Error('Не выбран тип стратегии доступа'));
+            return $this->error('Не выбран тип стратегии доступа');
         }
 
         if (!is_array($config)) {
-            return (new Result)->addError(new Error('Некорректная конфигурация стратегии доступа'));
+            return $this->error('Некорректная конфигурация стратегии доступа');
         }
 
         $registry = ServiceProvider::getStrategyRegistry();
 
         $strategy = $registry->get($type);
         if (!$strategy) {
-            return (new Result)->addError(new Error("Стратегия `{$type}` не зарегистрирована"));
+            return $this->error("Стратегия `{$type}` не зарегистрирована");
         }
 
         $strategyResult = $strategy->normalizeConfig($config);
@@ -50,10 +50,16 @@ class StrategyValidator
 
         $normalizedConfig = $strategyResult->getData()['config'] ?? [];
         if (!is_array($normalizedConfig)) {
-            return (new Result)->addError(new Error("Стратегия `{$type}` вернула некорректную конфигурацию"));
+            return $this->error("Стратегия `{$type}` вернула некорректную конфигурацию");
         }
 
-        return new Result;
+        return (new Result())->setData([
+            'strategy' => [
+                'type' => $type,
+                'config' => $normalizedConfig,
+            ],
+            'config' => $normalizedConfig,
+        ]);
     }
 
     /**
@@ -67,14 +73,41 @@ class StrategyValidator
     public function validateBulk(array $strategies): Result
     {
         $result = new Result;
+        $normalizedStrategies = [];
 
         foreach ($strategies as $item) {
+            if (!is_array($item)) {
+                $result->addErrors($this->error('Некорректная стратегия доступа')->getErrors());
+                continue;
+            }
+
             $validateResult = $this->validate($item);
             if (!$validateResult->isSuccess()) {
                 $result->addErrors($validateResult->getErrors());
+                continue;
+            }
+
+            $normalizedStrategy = $validateResult->getData()['strategy'] ?? null;
+            if (is_array($normalizedStrategy)) {
+                $normalizedStrategies[] = $normalizedStrategy;
             }
         }
 
-        return $result;
+        return $result->setData([
+            'strategies' => $normalizedStrategies,
+        ]);
+    }
+
+    /**
+     * Создаёт ошибочный Result с привязкой к полю стратегий.
+     *
+     * @param string $message Текст ошибки
+     * @return Result
+     */
+    private function error(string $message): Result
+    {
+        return (new Result())->addError(new Error($message, '', [
+            'field' => 'strategies',
+        ]));
     }
 }

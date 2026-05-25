@@ -50,6 +50,11 @@ class FlagValidator
         $strategyResult = (new StrategyValidator)->validateBulk($flag->strategies);
         if (!$strategyResult->isSuccess()) {
             $result->addErrors($strategyResult->getErrors());
+        } else {
+            $normalizedStrategies = $strategyResult->getData()['strategies'] ?? [];
+            if (is_array($normalizedStrategies)) {
+                $flag->strategies = $normalizedStrategies;
+            }
         }
 
         return $result;

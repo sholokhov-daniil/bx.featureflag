@@ -3,6 +3,7 @@ import type {
   FieldErrors,
   FeatureFlagStrategyFormItem,
   StrategyField,
+  StrategyFieldInputMode,
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { Loc } from '@/utils/localization'
@@ -33,6 +34,14 @@ function handleTypeChange(event: Event, strategy: FeatureFlagStrategyFormItem): 
   }
 
   emit('changeType', strategy, target.value)
+}
+
+function getFieldInputMode(field: StrategyField): StrategyFieldInputMode | undefined {
+  if (field.mask?.type === 'regex') {
+    return field.mask.inputMode
+  }
+
+  return undefined
 }
 </script>
 
@@ -99,7 +108,7 @@ function handleTypeChange(event: Event, strategy: FeatureFlagStrategyFormItem): 
               rows="3"
               :placeholder="field.placeholder ?? ''"
               :disabled="disabled"
-              :inputmode="field.mask ? 'decimal' : undefined"
+              :inputmode="getFieldInputMode(field)"
               @input="emit('fieldInput', $event, strategy, field)"
             ></textarea>
             <input
@@ -109,7 +118,7 @@ function handleTypeChange(event: Event, strategy: FeatureFlagStrategyFormItem): 
               class="ff-input ff-input--main"
               :placeholder="field.placeholder ?? ''"
               :disabled="disabled"
-              :inputmode="field.mask ? 'decimal' : undefined"
+              :inputmode="getFieldInputMode(field)"
               @input="emit('fieldInput', $event, strategy, field)"
             />
           </label>

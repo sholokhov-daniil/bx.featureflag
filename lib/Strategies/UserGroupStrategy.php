@@ -3,8 +3,10 @@
 namespace Sholokhov\Featureflag\Strategies;
 
 use CUser;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
 use Sholokhov\Featureflag\Field\TextareaField;
-use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\Validator\PositiveIntegerListValidator;
 
 /**
  * Стратегия доступа по группам текущего пользователя.
@@ -44,34 +46,19 @@ final class UserGroupStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            new TextareaField('groupIds')
+            (new TextareaField('groupIds'))
                 ->setName('ID групп')
                 ->setPlaceholder('1, 8')
-                ->setRequired()
+                ->setRequired(true, 'Укажите хотя бы один ID группы.')
+                ->setNormalizer(static fn(mixed $value): array => ListNormalizer::positiveIntegers($value))
+                ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
+                ->addValidator(new PositiveIntegerListValidator('Некорректный ID группы: %s'))
         ];
-    }
-
-    /**
-     * Валидирует и нормализует список ID групп.
-     *
-     * @param array<string, mixed> $config
-     * @return Result
-     */
-    public function normalizeConfig(array $config): Result
-    {
-        $groupIds = $this->normalizePositiveIds($config['groupIds'] ?? []);
-        if ($groupIds === []) {
-            return $this->error('Укажите хотя бы один ID группы.');
-        }
-
-        return $this->success([
-            'groupIds' => $groupIds,
-        ]);
     }
 
     /**

@@ -3,8 +3,11 @@
 namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Context;
-use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\IpNormalizer;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
 use Sholokhov\Featureflag\Field\TextareaField;
+use Sholokhov\Featureflag\Field\Validator\IpAddressListValidator;
 
 /**
  * Стратегия доступа по списку IP-адресов.
@@ -44,45 +47,20 @@ final class IpListStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            new TextareaField('ips')
+            (new TextareaField('ips'))
                 ->setName('IP-адреса')
                 ->setPlaceholder('127.0.0.1, 10.0.0.5')
-                ->setRequired()
-                ->setMask('ipv4_list')
+                ->setRequired(true, 'Укажите хотя бы один IP-адрес.')
+                ->setNormalizer(static fn(mixed $value): array => IpNormalizer::addressList($value))
+                ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
+                ->addValidator(new IpAddressListValidator())
+                ->setRegexMask('[^0-9A-Fa-f:.,;\s]')
         ];
-    }
-
-    /**
-     * Валидирует и нормализует список IP-адресов.
-     *
-     * @param array<string, mixed> $config
-     * @return Result
-     */
-    public function normalizeConfig(array $config): Result
-    {
-        $ips = $this->splitValues($config['ips'] ?? []);
-        if ($ips === []) {
-            return $this->error('Укажите хотя бы один IP-адрес.');
-        }
-
-        $normalizedIps = [];
-        foreach ($ips as $ip) {
-            $normalizedIp = $this->normalizeIp($ip);
-            if ($normalizedIp === null) {
-                return $this->error("Некорректный IP-адрес: {$ip}");
-            }
-
-            $normalizedIps[$normalizedIp] = $normalizedIp;
-        }
-
-        return $this->success([
-            'ips' => array_values($normalizedIps),
-        ]);
     }
 
     /**
@@ -94,41 +72,14 @@ final class IpListStrategy extends AbstractStrategy
      */
     public function isEnabled(string $featureCode, array $config): bool
     {
-        $currentIp = $this->normalizeIp($this->getCurrentIp());
+        $currentIp = IpNormalizer::canonical($this->getCurrentIp());
         if ($currentIp === null) {
             return false;
         }
 
-        $ips = [];
-        foreach ($this->splitValues($config['ips'] ?? []) as $ip) {
-            $normalizedIp = $this->normalizeIp($ip);
-            if ($normalizedIp !== null) {
-                $ips[] = $normalizedIp;
-            }
-        }
+        $ips = IpNormalizer::addressList($config['ips'] ?? []);
 
         return in_array($currentIp, $ips, true);
-    }
-
-    /**
-     * Приводит IP-адрес к каноническому виду.
-     *
-     * @param string $ip IP-адрес
-     * @return string|null
-     */
-    private function normalizeIp(string $ip): ?string
-    {
-        if (filter_var($ip, FILTER_VALIDATE_IP) === false) {
-            return null;
-        }
-
-        $packed = inet_pton($ip);
-        if ($packed === false) {
-            return null;
-        }
-
-        $normalized = inet_ntop($packed);
-        return $normalized === false ? null : $normalized;
     }
 
     /**

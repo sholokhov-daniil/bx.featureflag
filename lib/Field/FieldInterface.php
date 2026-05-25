@@ -2,7 +2,9 @@
 
 namespace Sholokhov\Featureflag\Field;
 
+use Bitrix\Main\Result;
 use Closure;
+use Sholokhov\Featureflag\Field\Validator\FieldValidatorInterface;
 
 /**
  * Описание свойства конфигурации стратегии
@@ -45,6 +47,22 @@ interface FieldInterface
     public function toArray(): array;
 
     /**
+     * Нормализация значения перед валидацией и сохранением
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public function normalizeValue(mixed $value): mixed;
+
+    /**
+     * Денормализация значения перед отдачей в UI
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public function denormalizeValue(mixed $value): mixed;
+
+    /**
      * Указание нормализатора данных - перед сохранением данных
      *
      * @param Closure $normalizer
@@ -59,4 +77,20 @@ interface FieldInterface
      * @return self
      */
     public function setDenormalizer(Closure $denormalizer): self;
+
+    /**
+     * Добавление валидатора значения свойства
+     *
+     * @param FieldValidatorInterface $validator
+     * @return self
+     */
+    public function addValidator(FieldValidatorInterface $validator): self;
+
+    /**
+     * Валидация значения на основе конфигурации свойства
+     *
+     * @param mixed $value
+     * @return Result
+     */
+    public function validateValue(mixed $value): Result;
 }

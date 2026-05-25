@@ -22,6 +22,7 @@ import type {
   NoticeType,
   StrategyField,
   StrategyFieldMask,
+  StrategyRegexMaskRule,
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { extractErrorList, extractErrorText } from '@/utils/apiErrors'
@@ -466,34 +467,54 @@ function handleStrategyFieldInput(
 }
 
 function applyStrategyFieldMask(value: string, mask?: StrategyFieldMask): string {
-  if (mask === 'ipv4') {
-    return maskIpv4(value)
-  }
-
-  if (mask === 'ipv4_list') {
+  if (mask?.type !== 'regex') {
     return value
-      .replace(/[^\d.,;\s]/g, '')
-      .replace(/\d[\d.]*/g, (part) => maskIpv4(part))
   }
 
-  return value
+  let result = value
+  for (const rule of getRegexMaskRules(mask)) {
+    const pattern = rule.pattern.trim()
+    if (pattern === '') {
+      continue
+    }
+
+    try {
+      result = result.replace(new RegExp(pattern, normalizeRegexFlags(rule.flags)), rule.replacement ?? '')
+    } catch {
+      continue
+    }
+  }
+
+  return result
 }
 
-function maskIpv4(value: string): string {
-  return value
-    .replace(/[^\d.]/g, '')
-    .split('.')
-    .slice(0, 4)
-    .map((part) => {
-      if (part === '') {
-        return ''
-      }
+function getRegexMaskRules(mask: StrategyFieldMask): StrategyRegexMaskRule[] {
+  if (Array.isArray(mask.rules) && mask.rules.length > 0) {
+    return mask.rules
+  }
 
-      const limited = part.slice(0, 3)
-      const numeric = Number(limited)
-      return numeric > 255 ? '255' : limited
-    })
-    .join('.')
+  if (mask.pattern) {
+    return [{
+      pattern: mask.pattern,
+      flags: mask.flags,
+      replacement: mask.replacement,
+    }]
+  }
+
+  return []
+}
+
+function normalizeRegexFlags(flags?: string): string {
+  const value = flags ?? 'g'
+  let result = ''
+
+  for (const flag of value) {
+    if ('gimsuy'.includes(flag) && !result.includes(flag)) {
+      result += flag
+    }
+  }
+
+  return result
 }
 
 function isProcessing(code: string): boolean {
