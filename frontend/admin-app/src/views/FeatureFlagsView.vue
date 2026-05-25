@@ -17,6 +17,8 @@ import type {
   FeatureFlagUser,
   FeatureFlagsDisplayMode,
   FeatureFlagsDisplayOption,
+  FeatureFlagsFilterCode,
+  FeatureFlagsFilterItem,
   FeatureTagItem,
   FieldErrors,
   ModalMode,
@@ -28,7 +30,7 @@ import type {
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { extractErrorList, extractErrorText } from '@/utils/apiErrors'
-import { dateToInputFormat, dateToServerFormat } from '@/utils/featureFlagDates'
+import { dateToInputFormat, dateToServerFormat, getFlagRemovalState } from '@/utils/featureFlagDates'
 import { createFieldErrors, extractFeatureFlagFormErrorState } from '@/utils/featureFlagErrors'
 import { Loc } from '@/utils/localization'
 import '../assets/styles/adminShell.css'
@@ -70,6 +72,8 @@ const formNotice = ref<Notice | null>(null)
 const listError = ref('')
 const notice = ref<Notice | null>(null)
 const displayMode = ref<FeatureFlagsDisplayMode>('cards')
+const activeFilter = ref<FeatureFlagsFilterCode>('all')
+const searchQuery = ref('')
 const currentPage = ref(1)
 const fieldErrors = reactive<FieldErrors>(createFieldErrors())
 
@@ -98,16 +102,34 @@ const isEditMode = computed(() => modalMode.value === 'edit')
 const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
 const hasStrategyTypes = computed(() => strategyTypes.value.length > 0)
-const totalPages = computed(() => Math.max(1, Math.ceil(flags.value.length / FLAGS_PAGE_SIZE)))
+const filteredFlags = computed(() => flags.value
+  .filter((flag) => isFlagMatchedByFilter(flag, activeFilter.value))
+  .filter((flag) => isFlagMatchedBySearch(flag, searchQuery.value)))
+const filterItems = computed<FeatureFlagsFilterItem[]>(() => [
+  { code: 'all', label: 'Все', count: flags.value.length, tone: 'blue' },
+  { code: 'enabled', label: 'Включенные', count: countFlagsByFilter('enabled'), tone: 'green' },
+  { code: 'disabled', label: 'Выключенные', count: countFlagsByFilter('disabled'), tone: 'gray' },
+  { code: 'deleting', label: 'Удаляющиеся', count: countFlagsByFilter('deleting'), tone: 'yellow' },
+  { code: 'expired', label: 'Просроченные', count: countFlagsByFilter('expired'), tone: 'red' },
+])
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredFlags.value.length / FLAGS_PAGE_SIZE)))
 const paginatedFlags = computed(() => {
   const start = (currentPage.value - 1) * FLAGS_PAGE_SIZE
-  return flags.value.slice(start, start + FLAGS_PAGE_SIZE)
+  return filteredFlags.value.slice(start, start + FLAGS_PAGE_SIZE)
 })
 
 let strategyUid = 0
 
 watch(() => flags.value.length, () => {
   setCurrentPage(currentPage.value)
+})
+
+watch(() => filteredFlags.value.length, () => {
+  setCurrentPage(currentPage.value)
+})
+
+watch([activeFilter, searchQuery], () => {
+  setCurrentPage(1)
 })
 
 void loadFlags()
@@ -392,8 +414,52 @@ function changeDisplayMode(mode: FeatureFlagsDisplayMode): void {
   displayMode.value = mode
 }
 
+function changeFilter(filter: FeatureFlagsFilterCode): void {
+  activeFilter.value = filter
+}
+
+function changeSearchQuery(query: string): void {
+  searchQuery.value = query
+}
+
 function setCurrentPage(page: number): void {
   currentPage.value = Math.min(Math.max(1, page), totalPages.value)
+}
+
+function countFlagsByFilter(filter: FeatureFlagsFilterCode): number {
+  return flags.value.filter((flag) => isFlagMatchedByFilter(flag, filter)).length
+}
+
+function isFlagMatchedByFilter(flag: FeatureFlagItem, filter: FeatureFlagsFilterCode): boolean {
+  switch (filter) {
+    case 'enabled':
+      return flag.enabled
+    case 'disabled':
+      return !flag.enabled
+    case 'deleting':
+      return isFlagDeleting(flag)
+    case 'expired':
+      return getFlagRemovalState(flag.removePlannedAt) === 'expired'
+    case 'all':
+    default:
+      return true
+  }
+}
+
+function isFlagDeleting(flag: FeatureFlagItem): boolean {
+  return flag.removePlannedAt !== '' && getFlagRemovalState(flag.removePlannedAt) !== 'expired'
+}
+
+function isFlagMatchedBySearch(flag: FeatureFlagItem, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (normalizedQuery === '') {
+    return true
+  }
+
+  return [
+    flag.name,
+    flag.tag?.name ?? '',
+  ].some((value) => value.toLowerCase().includes(normalizedQuery))
 }
 
 function addStrategy(): void {
@@ -577,20 +643,26 @@ function createEmptyUser(): FeatureFlagUser {
     <NoticeMessage :notice="notice" />
 
     <FeatureFlagsPanel
+      :active-filter="activeFilter"
       :current-page="currentPage"
       :display-mode="displayMode"
       :display-options="displayOptions"
+      :filter-items="filterItems"
       :flags="paginatedFlags"
       :is-loading="isListLoading"
       :list-error="listError"
       :page-size="FLAGS_PAGE_SIZE"
       :processing-codes="processingCodes"
+      :search-query="searchQuery"
+      :source-items="flags.length"
       :strategy-types="strategyTypes"
-      :total-items="flags.length"
+      :total-items="filteredFlags.length"
       @create="openCreateModal"
       @display-mode-change="changeDisplayMode"
       @edit="openEditModal"
+      @filter-change="changeFilter"
       @page-change="setCurrentPage"
+      @search-change="changeSearchQuery"
       @toggle="toggleFlag"
     />
 
