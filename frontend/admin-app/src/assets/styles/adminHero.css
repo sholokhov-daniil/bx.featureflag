@@ -1,0 +1,51 @@
+.ff-hero {
+  background:
+    radial-gradient(circle at top left, rgba(58, 138, 255, 0.16), transparent 32%),
+    linear-gradient(135deg, #fff 0%, #f5f9ff 100%);
+  border: 1px solid #dfe8f5;
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(15, 35, 64, 0.08);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.ff-hero__content {
+  padding: 24px 28px;
+}
+
+.ff-hero__eyebrow {
+  color: #52627a;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0 0 18px;
+}
+
+.ff-hero__summary {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.ff-hero__count {
+  color: #0f1724;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ff-hero__label {
+  color: #6d7d93;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 960px) {
+  .ff-hero__summary {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+}

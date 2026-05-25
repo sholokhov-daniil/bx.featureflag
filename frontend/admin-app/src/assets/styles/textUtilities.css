@@ -1,0 +1,17 @@
+.ff-user-link {
+  color: #1155cc;
+  text-decoration: none;
+}
+
+.ff-user-link:hover {
+  color: #0b43a4;
+  text-decoration: underline;
+}
+
+.ff-nowrap {
+  white-space: nowrap;
+}
+
+.ff-muted {
+  color: #7a8799;
+}

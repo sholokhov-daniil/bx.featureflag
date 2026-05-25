@@ -1,0 +1,19 @@
+.ff-notice {
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+
+.ff-notice.is-success {
+  background: #edf8f2;
+  border: 1px solid #bfe6cd;
+  color: #16623d;
+}
+
+.ff-notice.is-error {
+  background: #fff2f1;
+  border: 1px solid #f1c7c4;
+  color: #962d23;
+}

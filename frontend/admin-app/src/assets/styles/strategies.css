@@ -1,0 +1,53 @@
+.ff-strategies-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ff-strategies-empty {
+  background: #f8fbff;
+  border: 1px dashed #cbd8e8;
+  border-radius: 8px;
+  color: #6d7d93;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 14px 16px;
+}
+
+.ff-strategies-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ff-strategy-row {
+  background: #fbfdff;
+  border: 1px solid #dce6f2;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.ff-strategy-row__top {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
+.ff-strategy-row__fields {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ff-strategy-row__field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 960px) {
+  .ff-strategy-row__fields {
+    grid-template-columns: 1fr;
+  }
+}

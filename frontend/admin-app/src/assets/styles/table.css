@@ -1,0 +1,38 @@
+.ff-table-wrap {
+  overflow-x: auto;
+}
+
+.ff-table {
+  border-collapse: collapse;
+  min-width: 1120px;
+  width: 100%;
+}
+
+.ff-table--tags {
+  min-width: 420px;
+}
+
+.ff-table th,
+.ff-table td {
+  border-bottom: 1px solid #edf2f8;
+  padding: 16px 20px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.ff-table th {
+  background: #f9fbfe;
+  color: #6a7b91;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.ff-table tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.ff-table tbody tr:hover {
+  background: #f8fbff;
+}

@@ -1,5 +1,16 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import './assets/styles/adminHero.css'
+import './assets/styles/adminShell.css'
+import './assets/styles/buttons.css'
+import './assets/styles/featureFlagsTable.css'
+import './assets/styles/form.css'
+import './assets/styles/modal.css'
+import './assets/styles/notice.css'
+import './assets/styles/panel.css'
+import './assets/styles/state.css'
+import './assets/styles/table.css'
+import './assets/styles/textUtilities.css'
 
 interface TagItem {
   id: number
