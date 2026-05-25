@@ -517,6 +517,7 @@ namespace Local\FeatureFlag;
 
 use Bitrix\Main\Error;
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\TextField;
 use Sholokhov\Featureflag\Strategy\FeatureStrategyInterface;
 
 final class HeaderStrategy implements FeatureStrategyInterface
@@ -539,18 +540,13 @@ final class HeaderStrategy implements FeatureStrategyInterface
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'name',
-                'type' => 'text',
-                'label' => 'Имя заголовка',
-                'required' => true,
-            ],
-            [
-                'code' => 'value',
-                'type' => 'text',
-                'label' => 'Значение',
-                'required' => true,
-            ],
+            (new TextField('name'))
+                ->setName('Имя заголовка')
+                ->setRequired(true),
+                
+            (new TextField('value'))
+                ->setName('Значение')
+                ->setRequired(true),
         ];
     }
 

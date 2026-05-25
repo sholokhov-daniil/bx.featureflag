@@ -3,6 +3,7 @@
 namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\TextareaField;
 
 /**
  * Стратегия доступа по ID пользователей.
@@ -47,13 +48,10 @@ final class UserIdStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'userIds',
-                'type' => 'textarea',
-                'label' => 'ID пользователей',
-                'placeholder' => '1, 15, 42',
-                'required' => true,
-            ],
+            new TextareaField('userIds')
+                ->setName('ID пользователей')
+                ->setPlaceholder('1, 15, 42')
+                ->setRequired()
         ];
     }
 
@@ -101,11 +99,6 @@ final class UserIdStrategy extends AbstractStrategy
     private function getCurrentUserId(): int
     {
         global $USER;
-
-        if (is_object($USER) && method_exists($USER, 'GetID')) {
-            return (int)$USER->GetID();
-        }
-
-        return 0;
+        return $USER ? $USER->GetID() : 0;
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Sholokhov\Featureflag\Strategy;
 
+use Sholokhov\Featureflag\Field\FieldInterface;
+
 use Bitrix\Main\Result;
 
 /**
@@ -33,7 +35,7 @@ interface FeatureStrategyInterface
     /**
      * Описание полей настройки стратегии.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array;
 

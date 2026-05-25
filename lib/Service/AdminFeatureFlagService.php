@@ -14,6 +14,7 @@ use Bitrix\Main\SystemException;
 use Psr\Container\NotFoundExceptionInterface;
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Feature;
+use Sholokhov\Featureflag\Field\FieldInterface;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\ORM\FeatureTagTable;
 use Sholokhov\Featureflag\ServiceProvider;
@@ -370,7 +371,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
                     'code' => $strategy->getCode(),
                     'name' => $strategy->getName(),
                     'description' => $strategy->getDescription(),
-                    'fields' => $strategy->getFields(),
+                    'fields' => array_map(
+                        static fn(FieldInterface $field) => $field->toArray(),
+                        $strategy->getFields()
+                    ),
                 ];
             }
 

@@ -2,8 +2,9 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
-use Bitrix\Main\Result;
 use CUser;
+use Sholokhov\Featureflag\Field\TextareaField;
+use Bitrix\Main\Result;
 
 /**
  * Стратегия доступа по группам текущего пользователя.
@@ -48,13 +49,10 @@ final class UserGroupStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'groupIds',
-                'type' => 'textarea',
-                'label' => 'ID групп',
-                'placeholder' => '1, 8',
-                'required' => true,
-            ],
+            new TextareaField('groupIds')
+                ->setName('ID групп')
+                ->setPlaceholder('1, 8')
+                ->setRequired()
         ];
     }
 

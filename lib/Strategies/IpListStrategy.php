@@ -4,6 +4,7 @@ namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Context;
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\TextareaField;
 
 /**
  * Стратегия доступа по списку IP-адресов.
@@ -48,14 +49,11 @@ final class IpListStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'ips',
-                'type' => 'textarea',
-                'label' => 'IP-адреса',
-                'placeholder' => '127.0.0.1, 10.0.0.5',
-                'required' => true,
-                'mask' => 'ipv4_list',
-            ],
+            new TextareaField('ips')
+                ->setName('IP-адреса')
+                ->setPlaceholder('127.0.0.1, 10.0.0.5')
+                ->setRequired()
+                ->setMask('ipv4_list')
         ];
     }
 

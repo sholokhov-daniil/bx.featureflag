@@ -4,6 +4,8 @@ namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Context;
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\TextField;
 
 /**
  * Стратегия доступа по диапазону IP-адресов.
@@ -43,27 +45,22 @@ final class IpRangeStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'from',
-                'type' => 'text',
-                'label' => 'IP от',
-                'placeholder' => '10.0.0.1',
-                'required' => true,
-                'mask' => 'ipv4',
-            ],
-            [
-                'code' => 'to',
-                'type' => 'text',
-                'label' => 'IP до',
-                'placeholder' => '10.0.0.255',
-                'required' => true,
-                'mask' => 'ipv4',
-            ],
+            new TextField('from')
+                ->setName('IP от')
+                ->setPlaceholder('10.0.0.1')
+                ->setRequired()
+                ->setMask('ipv4'),
+
+            new TextField('to')
+                ->setName('IP до')
+                ->setPlaceholder('255.255.255.255')
+                ->setRequired()
+                ->setMask('ipv4'),
         ];
     }
 

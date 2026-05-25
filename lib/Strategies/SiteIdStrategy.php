@@ -3,6 +3,7 @@
 namespace Sholokhov\Featureflag\Strategies;
 
 use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\TextareaField;
 
 /**
  * Стратегия доступа по текущему SITE_ID.
@@ -47,13 +48,10 @@ final class SiteIdStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'siteIds',
-                'type' => 'textarea',
-                'label' => 'ID сайтов',
-                'placeholder' => 's1, s2',
-                'required' => true,
-            ],
+            new TextareaField('siteIds')
+                ->setName('ID сайтов')
+                ->setPlaceholder('s1, s2')
+                ->setRequired()
         ];
     }
 
