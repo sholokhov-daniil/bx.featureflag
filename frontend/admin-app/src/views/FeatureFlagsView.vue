@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { runAction } from '@/api/bitrixActions'
 import FeatureFlagModal from '@/components/FeatureFlagModal.vue'
 import FeatureFlagsHero from '@/components/FeatureFlagsHero.vue'
@@ -15,6 +15,8 @@ import type {
   FeatureFlagStrategyFormItem,
   FeatureFlagStrategyItem,
   FeatureFlagUser,
+  FeatureFlagsDisplayMode,
+  FeatureFlagsDisplayOption,
   FeatureTagItem,
   FieldErrors,
   ModalMode,
@@ -30,6 +32,8 @@ import { dateToInputFormat, dateToServerFormat } from '@/utils/featureFlagDates'
 import { createFieldErrors, extractFeatureFlagFormErrorState } from '@/utils/featureFlagErrors'
 import { Loc } from '@/utils/localization'
 import '../assets/styles/adminShell.css'
+
+const FLAGS_PAGE_SIZE = 10
 
 const emit = defineEmits<{
   manageTags: []
@@ -65,7 +69,14 @@ const formErrors = ref<string[]>([])
 const formNotice = ref<Notice | null>(null)
 const listError = ref('')
 const notice = ref<Notice | null>(null)
+const displayMode = ref<FeatureFlagsDisplayMode>('cards')
+const currentPage = ref(1)
 const fieldErrors = reactive<FieldErrors>(createFieldErrors())
+
+const displayOptions: FeatureFlagsDisplayOption[] = [
+  { code: 'cards', label: 'Карточки' },
+  { code: 'table', label: 'Таблица' },
+]
 
 const form = reactive<FeatureFlagForm>({
   code: '',
@@ -87,8 +98,17 @@ const isEditMode = computed(() => modalMode.value === 'edit')
 const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
 const hasStrategyTypes = computed(() => strategyTypes.value.length > 0)
+const totalPages = computed(() => Math.max(1, Math.ceil(flags.value.length / FLAGS_PAGE_SIZE)))
+const paginatedFlags = computed(() => {
+  const start = (currentPage.value - 1) * FLAGS_PAGE_SIZE
+  return flags.value.slice(start, start + FLAGS_PAGE_SIZE)
+})
 
 let strategyUid = 0
+
+watch(() => flags.value.length, () => {
+  setCurrentPage(currentPage.value)
+})
 
 void loadFlags()
 void loadTags()
@@ -368,6 +388,14 @@ function openTagsPage(): void {
   emit('manageTags')
 }
 
+function changeDisplayMode(mode: FeatureFlagsDisplayMode): void {
+  displayMode.value = mode
+}
+
+function setCurrentPage(page: number): void {
+  currentPage.value = Math.min(Math.max(1, page), totalPages.value)
+}
+
 function addStrategy(): void {
   const type = strategyTypes.value[0]?.code ?? ''
   if (!type) {
@@ -549,13 +577,20 @@ function createEmptyUser(): FeatureFlagUser {
     <NoticeMessage :notice="notice" />
 
     <FeatureFlagsPanel
-      :flags="flags"
+      :current-page="currentPage"
+      :display-mode="displayMode"
+      :display-options="displayOptions"
+      :flags="paginatedFlags"
       :is-loading="isListLoading"
       :list-error="listError"
+      :page-size="FLAGS_PAGE_SIZE"
       :processing-codes="processingCodes"
       :strategy-types="strategyTypes"
+      :total-items="flags.length"
       @create="openCreateModal"
+      @display-mode-change="changeDisplayMode"
       @edit="openEditModal"
+      @page-change="setCurrentPage"
       @toggle="toggleFlag"
     />
 

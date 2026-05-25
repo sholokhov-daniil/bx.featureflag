@@ -98,8 +98,14 @@ export type NoticeType = 'success' | 'error'
 export type ModalMode = 'create' | 'edit'
 export type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'strategies'
 export type AdminView = 'flags' | 'tags'
+export type FeatureFlagsDisplayMode = 'cards' | 'table'
 export type FeatureFlagEditableField = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'removePlannedAt'
 export type RemovalState = 'expired' | 'today' | null
+
+export interface FeatureFlagsDisplayOption {
+  code: FeatureFlagsDisplayMode
+  label: string
+}
 
 export interface Notice {
   type: NoticeType
