@@ -22,10 +22,6 @@ const emit = defineEmits<{
       :aria-pressed="option.code === mode"
       @click="emit('change', option.code)"
     >
-      <span
-        :class="['ff-view-switch__icon', `ff-view-switch__icon--${option.code}`]"
-        aria-hidden="true"
-      ></span>
       <span>{{ option.label }}</span>
     </button>
   </div>

@@ -3,6 +3,7 @@
 namespace Sholokhov\Featureflag\Http\Middleware;
 
 use Bitrix\Main\Context;
+use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Engine\ActionFilter\Base;
 use Bitrix\Main\Error;
 use Bitrix\Main\Event;
@@ -13,9 +14,9 @@ use Sholokhov\Featureflag\Permission\PermissionInterface;
 Loc::loadMessages(__FILE__);
 
 /**
- * Middleware-прослойка (Bitrix prefilter) для проверки прав администратора.
+ * Middleware-прослойка (Bitrix prefilter) для проверки прав на изменение.
  */
-final class AdminAccessMiddleware extends Base
+final class WriteAccessMiddleware extends Base
 {
     private const ERROR_ACCESS_DENIED = 'access_denied';
     private PermissionInterface $permission;
@@ -32,6 +33,7 @@ final class AdminAccessMiddleware extends Base
      */
     public function onBeforeAction(Event $event): ?EventResult
     {
+        Debug::dumpToFile($this->permission->hasFullAccess());
         if ($this->permission->hasFullAccess()) {
             return null;
         }

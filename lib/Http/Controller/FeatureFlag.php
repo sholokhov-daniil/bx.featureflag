@@ -6,7 +6,7 @@ use Bitrix\Main\ObjectNotFoundException;
 use Psr\Container\NotFoundExceptionInterface;
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
-use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
+use Sholokhov\Featureflag\Http\Middleware\WriteAccessMiddleware;
 use Sholokhov\Featureflag\Http\Middleware\ReadAccessMiddleware;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
 use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
@@ -38,9 +38,9 @@ final class FeatureFlag extends Controller
     {
         $permission = ServiceProvider::getModulePermission();
 
-        $adminConfig = [
+        $writeConfig = [
             '+prefilters' => [
-                new AdminAccessMiddleware($permission)
+                new WriteAccessMiddleware($permission)
             ]
         ];
 
@@ -53,16 +53,16 @@ final class FeatureFlag extends Controller
         return [
             'list' => $readConfig,
             'get' => $readConfig,
-            'create' => $adminConfig,
-            'update' => $adminConfig,
-            'delete' => $adminConfig,
-            'toggle' => $adminConfig,
+            'create' => $writeConfig,
+            'update' => $writeConfig,
+            'delete' => $writeConfig,
+            'toggle' => $writeConfig,
             'tagList' => $readConfig,
-            'tagCreate' => $adminConfig,
-            'tagUpdate' => $adminConfig,
-            'tagDelete' => $adminConfig,
+            'tagCreate' => $writeConfig,
+            'tagUpdate' => $writeConfig,
+            'tagDelete' => $writeConfig,
             'strategyList' => $readConfig,
-            'saveViewOptions' => $adminConfig,
+            'saveViewOptions' => $writeConfig,
         ];
     }
 
