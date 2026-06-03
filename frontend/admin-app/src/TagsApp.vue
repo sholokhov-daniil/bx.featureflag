@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import AdminFooter from './components/AdminFooter.vue'
 import './assets/styles/adminHero.css'
 import './assets/styles/adminShell.css'
 import './assets/styles/buttons.css'
@@ -569,6 +570,8 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
         </table>
       </div>
     </section>
+
+    <AdminFooter />
 
     <transition name="ff-modal-fade">
       <div v-if="isModalOpen" class="ff-modal">

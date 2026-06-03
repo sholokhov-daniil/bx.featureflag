@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { runAction } from '@/api/bitrixActions'
+import AdminFooter from '@/components/AdminFooter.vue'
 import FeatureFlagModal from '@/components/FeatureFlagModal.vue'
 import FeatureFlagsHero from '@/components/FeatureFlagsHero.vue'
 import FeatureFlagsPanel from '@/components/FeatureFlagsPanel.vue'
@@ -637,6 +638,8 @@ function createEmptyUser(): FeatureFlagUser {
       @search-change="changeSearchQuery"
       @toggle="toggleFlag"
     />
+
+    <AdminFooter />
 
     <FeatureFlagModal
       :detail-meta="detailMeta"
