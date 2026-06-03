@@ -23,6 +23,26 @@ return [
         ],
         'readonly' => true,
     ],
+    'ui.entity-selector' => [
+        'value' => [
+            'entities' => [
+                [
+                    'entityId' => 'sholokhov.featureflag.user',
+                    'provider' => [
+                        'moduleId' => 'sholokhov.featureflag',
+                        'className' => \Sholokhov\Featureflag\Provider\EntitySelector\UserProvider::class,
+                    ]
+                ],
+                [
+                    'entityId' => 'sholokhov.featureflag.user.group',
+                    'provider' => [
+                        'moduleId' => 'sholokhov.featureflag',
+                        'className' => \Sholokhov\Featureflag\Provider\EntitySelector\UserGroupProvider::class,
+                    ]
+                ],
+            ]
+        ]
+    ],
     'services' => [
         'value' => [
             FeatureFactoryInterface::class => [

@@ -360,16 +360,20 @@ final class AdminFeatureFlagPresenter
     {
         try {
             $strategy = ServiceProvider::getStrategyRegistry()->get($type);
+
+            if ($strategy !== null && !$strategy->getAvailability()->isAvailable()) {
+                return $config;
+            }
+
+            if ($strategy !== null && method_exists($strategy, 'denormalizeConfig')) {
+                /** @var callable $denormalizer */
+                $denormalizer = [$strategy, 'denormalizeConfig'];
+                $denormalizedConfig = $denormalizer($config);
+
+                return is_array($denormalizedConfig) ? $denormalizedConfig : $config;
+            }
         } catch (\Throwable) {
             return $config;
-        }
-
-        if ($strategy !== null && method_exists($strategy, 'denormalizeConfig')) {
-            /** @var callable $denormalizer */
-            $denormalizer = [$strategy, 'denormalizeConfig'];
-            $denormalizedConfig = $denormalizer($config);
-
-            return is_array($denormalizedConfig) ? $denormalizedConfig : $config;
         }
 
         return $config;

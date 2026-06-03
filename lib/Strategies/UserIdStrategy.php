@@ -2,10 +2,14 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
+use Sholokhov\Featureflag\Field\EntitySelector\UserField;
 use Sholokhov\Featureflag\Field\FieldInterface;
 use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
-use Sholokhov\Featureflag\Field\TextareaField;
 use Sholokhov\Featureflag\Field\Validator\PositiveIntegerListValidator;
+use Sholokhov\Featureflag\Strategy\StrategyAvailability;
+
+use Bitrix\Main\Loader;
+use Bitrix\Main\LoaderException;
 
 /**
  * Стратегия доступа по ID пользователей.
@@ -50,9 +54,8 @@ final class UserIdStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            (new TextareaField('userIds'))
+            (new UserField('userIds'))
                 ->setName('ID пользователей')
-                ->setPlaceholder('1, 15, 42')
                 ->setRequired(true, 'Укажите хотя бы один ID пользователя.')
                 ->setNormalizer(static fn(mixed $value): array => ListNormalizer::positiveIntegers($value))
                 ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
@@ -76,6 +79,19 @@ final class UserIdStrategy extends AbstractStrategy
 
         $currentUserId = $this->getCurrentUserId();
         return $currentUserId > 0 && in_array($currentUserId, $userIds, true);
+    }
+
+    /**
+     * Проверяет, доступна ли стратегия в текущем окружении.
+     *
+     * @return StrategyAvailability
+     * @throws LoaderException
+     */
+    public function getAvailability(): StrategyAvailability
+    {
+        return Loader::includeModule('ui')
+            ? StrategyAvailability::available()
+            : StrategyAvailability::unavailableModule('ui');
     }
 
     /**

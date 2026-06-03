@@ -40,6 +40,13 @@ interface FieldInterface
     public function isRequired(): bool;
 
     /**
+     * Значение является множественным
+     *
+     * @return bool
+     */
+    public function isMultiple(): bool;
+
+    /**
      * Преобразование свойства в справочник
      *
      * @return array
@@ -61,30 +68,6 @@ interface FieldInterface
      * @return mixed
      */
     public function denormalizeValue(mixed $value): mixed;
-
-    /**
-     * Указание нормализатора данных - перед сохранением данных
-     *
-     * @param Closure $normalizer
-     * @return self
-     */
-    public function setNormalizer(Closure $normalizer): self;
-
-    /**
-     * Указание денормализатор данных - как прочитать данные
-     *
-     * @param Closure $denormalizer
-     * @return self
-     */
-    public function setDenormalizer(Closure $denormalizer): self;
-
-    /**
-     * Добавление валидатора значения свойства
-     *
-     * @param FieldValidatorInterface $validator
-     * @return self
-     */
-    public function addValidator(FieldValidatorInterface $validator): self;
 
     /**
      * Валидация значения на основе конфигурации свойства

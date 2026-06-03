@@ -96,4 +96,19 @@ interface AdminFeatureFlagServiceInterface
      * @return Result{items: array<int, array<string, mixed>>}
      */
     public function strategyList(): Result;
+
+    /**
+     * Возвращает пользовательские настройки отображения списка фича-флагов.
+     *
+     * @return Result{viewOptions: array{displayMode: string}}
+     */
+    public function getViewOptions(): Result;
+
+    /**
+     * Сохраняет пользовательский способ отображения списка фича-флагов.
+     *
+     * @param string $displayMode Код способа отображения.
+     * @return Result{viewOptions: array{displayMode: string}}
+     */
+    public function saveViewOptions(string $displayMode): Result;
 }

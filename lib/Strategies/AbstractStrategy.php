@@ -2,11 +2,14 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
+use Throwable;
+
 use Bitrix\Main\Error;
 use Bitrix\Main\Result;
 use Sholokhov\Featureflag\Field\FieldInterface;
 use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
 use Sholokhov\Featureflag\Strategy\FeatureStrategyInterface;
+use Sholokhov\Featureflag\Strategy\StrategyAvailability;
 
 /**
  * Базовый класс для встроенных стратегий доступа.
@@ -41,6 +44,16 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
     }
 
     /**
+     * Проверяет, доступна ли стратегия в текущем окружении.
+     *
+     * @return StrategyAvailability
+     */
+    public function getAvailability(): StrategyAvailability
+    {
+        return StrategyAvailability::available();
+    }
+
+    /**
      * Валидирует и нормализует конфигурацию через описание свойств стратегии.
      *
      * @param array<string, mixed> $config
@@ -48,10 +61,23 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
      */
     public function normalizeConfig(array $config): Result
     {
+        $availability = $this->getAvailability();
+        if (!$availability->isAvailable()) {
+            return $this->error($this->getUnavailableMessage($availability));
+        }
+
         $result = new Result();
         $normalizedConfig = [];
 
-        foreach ($this->getFieldsByCode() as $code => $field) {
+        try {
+            $fields = $this->getFieldsByCode();
+        } catch (Throwable $exception) {
+            return $this->error($this->getUnavailableMessage(
+                StrategyAvailability::unavailable($exception->getMessage())
+            ));
+        }
+
+        foreach ($fields as $code => $field) {
             $value = $field->normalizeValue($config[$code] ?? null);
             $fieldResult = $field->validateValue($value);
 
@@ -82,9 +108,19 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
      */
     public function denormalizeConfig(array $config): array
     {
+        if (!$this->getAvailability()->isAvailable()) {
+            return $config;
+        }
+
         $denormalizedConfig = $config;
 
-        foreach ($this->getFieldsByCode() as $code => $field) {
+        try {
+            $fields = $this->getFieldsByCode();
+        } catch (Throwable) {
+            return $config;
+        }
+
+        foreach ($fields as $code => $field) {
             $denormalizedConfig[$code] = $field->denormalizeValue($config[$code] ?? null);
         }
 
@@ -116,6 +152,21 @@ abstract class AbstractStrategy implements FeatureStrategyInterface
         }
 
         return $fields;
+    }
+
+    /**
+     * Формирует сообщение о недоступности стратегии.
+     *
+     * @param StrategyAvailability $availability Статус доступности.
+     * @return string
+     */
+    private function getUnavailableMessage(StrategyAvailability $availability): string
+    {
+        $reason = $availability->getReason();
+
+        return $reason !== ''
+            ? $reason
+            : sprintf('Стратегия `%s` недоступна', $this->getName());
     }
 
     /**

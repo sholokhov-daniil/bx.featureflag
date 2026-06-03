@@ -1,17 +1,20 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
 import type {
   FieldErrors,
   FeatureFlagStrategyFormItem,
   StrategyField,
-  StrategyFieldInputMode,
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { Loc } from '@/utils/localization'
+import StrategyEntitySelectorField from './strategyFields/StrategyEntitySelectorField.vue'
+import StrategyTextField from './strategyFields/StrategyTextField.vue'
+import StrategyTextareaField from './strategyFields/StrategyTextareaField.vue'
 import '../assets/styles/buttons.css'
 import '../assets/styles/form.css'
 import '../assets/styles/strategies.css'
 
-defineProps<{
+const props = defineProps<{
   disabled: boolean
   fieldErrors: FieldErrors
   hasStrategyTypes: boolean
@@ -24,8 +27,14 @@ const emit = defineEmits<{
   add: []
   remove: [index: number]
   changeType: [strategy: FeatureFlagStrategyFormItem, type: string]
-  fieldInput: [event: Event, strategy: FeatureFlagStrategyFormItem, field: StrategyField]
+  fieldChange: [value: string, strategy: FeatureFlagStrategyFormItem, field: StrategyField]
 }>()
+
+const strategyFieldComponents = {
+  text: StrategyTextField,
+  textarea: StrategyTextareaField,
+  'entity-selector': StrategyEntitySelectorField,
+} satisfies Record<StrategyField['type'], Component>
 
 function handleTypeChange(event: Event, strategy: FeatureFlagStrategyFormItem): void {
   const target = event.target as HTMLSelectElement | null
@@ -36,12 +45,43 @@ function handleTypeChange(event: Event, strategy: FeatureFlagStrategyFormItem): 
   emit('changeType', strategy, target.value)
 }
 
-function getFieldInputMode(field: StrategyField): StrategyFieldInputMode | undefined {
-  if (field.mask?.type === 'regex') {
-    return field.mask.inputMode
+function getStrategyFieldComponent(field: StrategyField): Component {
+  return strategyFieldComponents[field.type] ?? StrategyTextField
+}
+
+function getFieldLabel(field: StrategyField): string {
+  return field.label ?? field.name ?? field.code
+}
+
+function isWideField(field: StrategyField): boolean {
+  return field.type !== 'text'
+}
+
+function getStrategyType(code: string): StrategyTypeItem | null {
+  return props.strategyTypes.find((item) => item.code === code) ?? null
+}
+
+function isStrategyTypeAvailable(type: StrategyTypeItem | null | undefined): boolean {
+  return type?.available !== false
+}
+
+function isStrategyAvailable(code: string): boolean {
+  return isStrategyTypeAvailable(getStrategyType(code))
+}
+
+function getStrategyOptionLabel(type: StrategyTypeItem): string {
+  return isStrategyTypeAvailable(type)
+    ? type.name
+    : `${type.name} (${Loc('SHOLOKHOV_FEATUREFLAG_STRATEGY_UNAVAILABLE_SHORT')})`
+}
+
+function getStrategyUnavailableReason(code: string): string {
+  const type = getStrategyType(code)
+  if (isStrategyTypeAvailable(type)) {
+    return ''
   }
 
-  return undefined
+  return type?.unavailableReason || Loc('SHOLOKHOV_FEATUREFLAG_STRATEGY_UNAVAILABLE')
 }
 </script>
 
@@ -70,7 +110,11 @@ function getFieldInputMode(field: StrategyField): StrategyFieldInputMode | undef
     </div>
 
     <div v-else class="ff-strategies-list">
-      <div v-for="(strategy, strategyIndex) in strategies" :key="strategy.uid" class="ff-strategy-row">
+      <div
+        v-for="(strategy, strategyIndex) in strategies"
+        :key="strategy.uid"
+        :class="['ff-strategy-row', { 'is-unavailable': !isStrategyAvailable(strategy.type) }]"
+      >
         <div class="ff-strategy-row__top">
           <select
             :value="strategy.type"
@@ -78,8 +122,13 @@ function getFieldInputMode(field: StrategyField): StrategyFieldInputMode | undef
             :disabled="disabled"
             @change="handleTypeChange($event, strategy)"
           >
-            <option v-for="type in strategyTypes" :key="type.code" :value="type.code">
-              {{ type.name }}
+            <option
+              v-for="type in strategyTypes"
+              :key="type.code"
+              :value="type.code"
+              :disabled="!isStrategyTypeAvailable(type)"
+            >
+              {{ getStrategyOptionLabel(type) }}
             </option>
           </select>
 
@@ -94,34 +143,25 @@ function getFieldInputMode(field: StrategyField): StrategyFieldInputMode | undef
           </button>
         </div>
 
-        <div class="ff-strategy-row__fields">
-          <label
+        <div v-if="getStrategyUnavailableReason(strategy.type)" class="ff-strategy-row__notice">
+          {{ getStrategyUnavailableReason(strategy.type) }}
+        </div>
+
+        <div v-else class="ff-strategy-row__fields">
+          <div
             v-for="field in getStrategyFields(strategy.type)"
             :key="`${strategy.uid}-${field.code}`"
-            :class="['ff-field', { 'ff-strategy-row__field--wide': field.type === 'textarea' }]"
+            :class="['ff-field', { 'ff-strategy-row__field--wide': isWideField(field) }]"
           >
-            <span class="ff-field__label">{{ field.label }}</span>
-            <textarea
-              v-if="field.type === 'textarea'"
-              :value="strategy.config[field.code]"
-              class="ff-textarea ff-textarea--main ff-textarea--compact"
-              rows="3"
-              :placeholder="field.placeholder ?? ''"
+            <span class="ff-field__label">{{ getFieldLabel(field) }}</span>
+            <component
+              :is="getStrategyFieldComponent(field)"
+              :field="field"
+              :model-value="strategy.config[field.code] ?? ''"
               :disabled="disabled"
-              :inputmode="getFieldInputMode(field)"
-              @input="emit('fieldInput', $event, strategy, field)"
-            ></textarea>
-            <input
-              v-else
-              :value="strategy.config[field.code]"
-              type="text"
-              class="ff-input ff-input--main"
-              :placeholder="field.placeholder ?? ''"
-              :disabled="disabled"
-              :inputmode="getFieldInputMode(field)"
-              @input="emit('fieldInput', $event, strategy, field)"
+              @update:model-value="emit('fieldChange', $event, strategy, field)"
             />
-          </label>
+          </div>
         </div>
       </div>
     </div>

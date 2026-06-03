@@ -9,6 +9,9 @@ declare global {
       langId: string
       actions: Record<string, string>
       messages: Record<string, string>
+      viewOptions?: {
+        displayMode?: 'cards' | 'table'
+      }
       urls?: Record<string, string>
     }
   }

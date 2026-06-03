@@ -31,15 +31,19 @@
 }
 
 .ff-view-switch__button {
+  align-items: center;
   appearance: none;
   background: transparent;
   border: 0;
   border-radius: 6px;
   color: #40516a;
   cursor: pointer;
+  display: inline-flex;
   font-size: 13px;
   font-weight: 700;
+  gap: 8px;
   height: 34px;
+  justify-content: center;
   min-width: 84px;
   padding: 0 12px;
   transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
@@ -53,6 +57,31 @@
   background: #fff;
   box-shadow: 0 6px 16px rgba(15, 35, 64, 0.1);
   color: #1155cc;
+}
+
+.ff-view-switch__icon {
+  color: currentColor;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.ff-view-switch__icon--cards {
+  background:
+    linear-gradient(currentColor 0 0) left top / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) right top / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) left bottom / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) right bottom / 6px 6px no-repeat;
+  border-radius: 2px;
+}
+
+.ff-view-switch__icon--table {
+  background:
+    linear-gradient(currentColor 0 0) left 1px top 1px / 14px 2px no-repeat,
+    linear-gradient(currentColor 0 0) left 1px center / 14px 2px no-repeat,
+    linear-gradient(currentColor 0 0) left 1px bottom 1px / 14px 2px no-repeat;
+  border: 1px solid currentColor;
+  border-radius: 3px;
 }
 
 .ff-pagination {

@@ -4,6 +4,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\UI\Extension;
 use Bitrix\Main\Web\Json;
+use Sholokhov\Featureflag\ServiceProvider;
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_admin_before.php';
 
@@ -32,9 +33,12 @@ if (!Loader::includeModule('sholokhov.featureflag')) {
 
 Extension::load('sholokhov.featureflag-admin');
 
+$viewOptionsResult = ServiceProvider::getAdminFeatureFlagService()->getViewOptions();
+
 $bootstrap = [
     'view' => 'flags',
     'langId' => LANGUAGE_ID,
+    'viewOptions' => $viewOptionsResult->isSuccess() ? ($viewOptionsResult->getData()['viewOptions'] ?? []) : [],
     'actions' => [
         'list' => 'sholokhov:featureflag.FeatureFlag.list',
         'get' => 'sholokhov:featureflag.FeatureFlag.get',
@@ -47,6 +51,7 @@ $bootstrap = [
         'tagUpdate' => 'sholokhov:featureflag.FeatureFlag.tagUpdate',
         'tagDelete' => 'sholokhov:featureflag.FeatureFlag.tagDelete',
         'strategyList' => 'sholokhov:featureflag.FeatureFlag.strategyList',
+        'saveViewOptions' => 'sholokhov:featureflag.FeatureFlag.saveViewOptions',
     ],
 ];
 ?>

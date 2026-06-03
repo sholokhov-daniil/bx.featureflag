@@ -43,6 +43,13 @@ class StrategyValidator
             return $this->error("Стратегия `{$type}` не зарегистрирована");
         }
 
+        $availability = $strategy->getAvailability();
+        if (!$availability->isAvailable()) {
+            $reason = $availability->getReason();
+
+            return $this->error($reason !== '' ? $reason : "Стратегия `{$type}` недоступна");
+        }
+
         $strategyResult = $strategy->normalizeConfig($config);
         if (!$strategyResult->isSuccess()) {
             return $strategyResult;

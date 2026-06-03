@@ -49,6 +49,7 @@ final class FeatureFlag extends Controller
             'tagUpdate' => $config,
             'tagDelete' => $config,
             'strategyList' => $config,
+            'saveViewOptions' => $config,
         ];
     }
 
@@ -269,6 +270,20 @@ final class FeatureFlag extends Controller
     {
         return $this->resolveServiceResult(
             $service->strategyList(),
+        );
+    }
+
+    /**
+     * Сохраняет пользовательские настройки отображения списка фича-флагов.
+     *
+     * @param string $displayMode
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function saveViewOptionsAction(string $displayMode, AdminFeatureFlagServiceInterface $service): ?array
+    {
+        return $this->resolveServiceResult(
+            $service->saveViewOptions($displayMode),
         );
     }
 

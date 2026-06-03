@@ -45,7 +45,7 @@ const emit = defineEmits<{
   delete: []
   dismiss: []
   removeStrategy: [index: number]
-  strategyFieldInput: [event: Event, strategy: FeatureFlagStrategyFormItem, field: StrategyField]
+  strategyFieldChange: [value: string, strategy: FeatureFlagStrategyFormItem, field: StrategyField]
   submit: []
   updateFormField: [field: FeatureFlagEditableField, value: string | boolean]
 }>()
@@ -236,7 +236,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
               @add="emit('addStrategy')"
               @remove="emit('removeStrategy', $event)"
               @change-type="(strategy, type) => emit('changeStrategyType', strategy, type)"
-              @field-input="(event, strategy, field) => emit('strategyFieldInput', event, strategy, field)"
+              @field-change="(value, strategy, field) => emit('strategyFieldChange', value, strategy, field)"
             />
           </div>
 

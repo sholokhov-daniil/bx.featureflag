@@ -25,8 +25,6 @@ import type {
   Notice,
   NoticeType,
   StrategyField,
-  StrategyFieldMask,
-  StrategyRegexMaskRule,
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { extractErrorList, extractErrorText } from '@/utils/apiErrors'
@@ -54,6 +52,7 @@ const actions: ActionConfig = {
   toggle: bootstrap.actions.toggle ?? '',
   tagList: bootstrap.actions.tagList ?? '',
   strategyList: bootstrap.actions.strategyList ?? '',
+  saveViewOptions: bootstrap.actions.saveViewOptions ?? '',
 }
 
 const flags = ref<FeatureFlagItem[]>([])
@@ -71,7 +70,7 @@ const formErrors = ref<string[]>([])
 const formNotice = ref<Notice | null>(null)
 const listError = ref('')
 const notice = ref<Notice | null>(null)
-const displayMode = ref<FeatureFlagsDisplayMode>('cards')
+const displayMode = ref<FeatureFlagsDisplayMode>(normalizeDisplayMode(bootstrap.viewOptions?.displayMode))
 const activeFilter = ref<FeatureFlagsFilterCode>('all')
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -101,7 +100,7 @@ const detailMeta = reactive<FeatureFlagDetailMeta>({
 const isEditMode = computed(() => modalMode.value === 'edit')
 const modalTitle = computed(() => isEditMode.value ? Loc('SHOLOKHOV_FEATUREFLAG_POPUP_EDIT_TITLE') : Loc('SHOLOKHOV_FEATUREFLAG_POPUP_CREATE_TITLE'))
 const totalFlags = computed(() => `${flags.value.length}`)
-const hasStrategyTypes = computed(() => strategyTypes.value.length > 0)
+const hasStrategyTypes = computed(() => strategyTypes.value.some(isStrategyTypeAvailable))
 const filteredFlags = computed(() => flags.value
   .filter((flag) => isFlagMatchedByFilter(flag, activeFilter.value))
   .filter((flag) => isFlagMatchedBySearch(flag, searchQuery.value)))
@@ -411,7 +410,30 @@ function openTagsPage(): void {
 }
 
 function changeDisplayMode(mode: FeatureFlagsDisplayMode): void {
+  if (displayMode.value === mode) {
+    return
+  }
+
   displayMode.value = mode
+  void saveDisplayMode(mode)
+}
+
+async function saveDisplayMode(mode: FeatureFlagsDisplayMode): Promise<void> {
+  if (!actions.saveViewOptions) {
+    return
+  }
+
+  try {
+    await runAdminAction(actions.saveViewOptions, {
+      displayMode: mode,
+    })
+  } catch (error) {
+    showNotice('error', extractErrorText(error, 'Не удалось сохранить способ отображения'))
+  }
+}
+
+function normalizeDisplayMode(mode: unknown): FeatureFlagsDisplayMode {
+  return mode === 'table' ? 'table' : 'cards'
 }
 
 function changeFilter(filter: FeatureFlagsFilterCode): void {
@@ -463,7 +485,7 @@ function isFlagMatchedBySearch(flag: FeatureFlagItem, query: string): boolean {
 }
 
 function addStrategy(): void {
-  const type = strategyTypes.value[0]?.code ?? ''
+  const type = strategyTypes.value.find(isStrategyTypeAvailable)?.code ?? ''
   if (!type) {
     return
   }
@@ -476,6 +498,11 @@ function removeStrategy(index: number): void {
 }
 
 function changeStrategyType(strategy: FeatureFlagStrategyFormItem, type: string): void {
+  const strategyType = getStrategyType(type)
+  if (!isStrategyTypeAvailable(strategyType)) {
+    return
+  }
+
   strategy.type = type
   strategy.config = createDefaultStrategyConfig(type)
 }
@@ -484,8 +511,14 @@ function getStrategyType(code: string): StrategyTypeItem | null {
   return strategyTypes.value.find((item) => item.code === code) ?? null
 }
 
+function isStrategyTypeAvailable(strategyType: StrategyTypeItem | null | undefined): boolean {
+  return strategyType?.available !== false
+}
+
 function getStrategyFields(code: string): StrategyField[] {
-  return getStrategyType(code)?.fields ?? []
+  const strategyType = getStrategyType(code)
+
+  return isStrategyTypeAvailable(strategyType) ? strategyType?.fields ?? [] : []
 }
 
 function createStrategyFormItem(type: string, config: Record<string, unknown> = {}): FeatureFlagStrategyFormItem {
@@ -542,73 +575,12 @@ function serializeStrategies(): FeatureFlagStrategyItem[] {
     }))
 }
 
-function handleStrategyFieldInput(
-  event: Event,
+function handleStrategyFieldChange(
+  value: string,
   strategy: FeatureFlagStrategyFormItem,
   field: StrategyField,
 ): void {
-  const target = event.target as HTMLInputElement | HTMLTextAreaElement | null
-  if (target === null) {
-    return
-  }
-
-  const value = applyStrategyFieldMask(target.value, field.mask)
-  if (target.value !== value) {
-    target.value = value
-  }
-
   strategy.config[field.code] = value
-}
-
-function applyStrategyFieldMask(value: string, mask?: StrategyFieldMask): string {
-  if (mask?.type !== 'regex') {
-    return value
-  }
-
-  let result = value
-  for (const rule of getRegexMaskRules(mask)) {
-    const pattern = rule.pattern.trim()
-    if (pattern === '') {
-      continue
-    }
-
-    try {
-      result = result.replace(new RegExp(pattern, normalizeRegexFlags(rule.flags)), rule.replacement ?? '')
-    } catch {
-      continue
-    }
-  }
-
-  return result
-}
-
-function getRegexMaskRules(mask: StrategyFieldMask): StrategyRegexMaskRule[] {
-  if (Array.isArray(mask.rules) && mask.rules.length > 0) {
-    return mask.rules
-  }
-
-  if (mask.pattern) {
-    return [{
-      pattern: mask.pattern,
-      flags: mask.flags,
-      replacement: mask.replacement,
-    }]
-  }
-
-  return []
-}
-
-function normalizeRegexFlags(flags?: string): string {
-  const value = flags ?? 'g'
-  let result = ''
-
-  for (const flag of value) {
-    if ('gimsuy'.includes(flag) && !result.includes(flag)) {
-      result += flag
-    }
-  }
-
-  return result
 }
 
 function isProcessing(code: string): boolean {
@@ -688,7 +660,7 @@ function createEmptyUser(): FeatureFlagUser {
       @delete="deleteCurrentFlag"
       @dismiss="dismissModal"
       @remove-strategy="removeStrategy"
-      @strategy-field-input="handleStrategyFieldInput"
+      @strategy-field-change="handleStrategyFieldChange"
       @submit="submitForm"
       @update-form-field="updateFormField"
     />

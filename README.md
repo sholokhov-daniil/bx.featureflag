@@ -519,6 +519,7 @@ use Bitrix\Main\Error;
 use Bitrix\Main\Result;
 use Sholokhov\Featureflag\Field\TextField;
 use Sholokhov\Featureflag\Strategy\FeatureStrategyInterface;
+use Sholokhov\Featureflag\Strategy\StrategyAvailability;
 
 final class HeaderStrategy implements FeatureStrategyInterface
 {
@@ -535,6 +536,11 @@ final class HeaderStrategy implements FeatureStrategyInterface
     public function getDescription(): string
     {
         return 'Включает флаг при совпадении значения HTTP-заголовка.';
+    }
+
+    public function getAvailability(): StrategyAvailability
+    {
+        return StrategyAvailability::available();
     }
 
     public function getFields(): array

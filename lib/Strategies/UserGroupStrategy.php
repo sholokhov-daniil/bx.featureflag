@@ -3,9 +3,9 @@
 namespace Sholokhov\Featureflag\Strategies;
 
 use CUser;
+use Sholokhov\Featureflag\Field\EntitySelector\UserGroupField;
 use Sholokhov\Featureflag\Field\FieldInterface;
 use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
-use Sholokhov\Featureflag\Field\TextareaField;
 use Sholokhov\Featureflag\Field\Validator\PositiveIntegerListValidator;
 
 /**
@@ -51,9 +51,8 @@ final class UserGroupStrategy extends AbstractStrategy
     public function getFields(): array
     {
         return [
-            (new TextareaField('groupIds'))
-                ->setName('ID групп')
-                ->setPlaceholder('1, 8')
+            (new UserGroupField('groupIds'))
+                ->setName('Группы пользователей')
                 ->setRequired(true, 'Укажите хотя бы один ID группы.')
                 ->setNormalizer(static fn(mixed $value): array => ListNormalizer::positiveIntegers($value))
                 ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
