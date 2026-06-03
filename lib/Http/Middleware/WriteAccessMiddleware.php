@@ -33,8 +33,7 @@ final class WriteAccessMiddleware extends Base
      */
     public function onBeforeAction(Event $event): ?EventResult
     {
-        Debug::dumpToFile($this->permission->hasFullAccess());
-        if ($this->permission->hasFullAccess()) {
+        if ($this->permission->canWrite()) {
             return null;
         }
 

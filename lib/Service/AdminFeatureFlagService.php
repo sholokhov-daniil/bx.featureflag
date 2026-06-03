@@ -434,7 +434,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     {
         $displayMode = $this->normalizeDisplayMode($displayMode);
         if ($displayMode === null) {
-            return (new Result())->addError(new Error('Некорректный способ отображения списка фича-флагов'));
+            return (new Result)->addError(new Error('Некорректный способ отображения списка фича-флагов'));
         }
 
         \CUserOptions::SetOption(

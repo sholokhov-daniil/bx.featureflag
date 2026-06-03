@@ -62,7 +62,7 @@ final class FeatureFlag extends Controller
             'tagUpdate' => $writeConfig,
             'tagDelete' => $writeConfig,
             'strategyList' => $readConfig,
-            'saveViewOptions' => $writeConfig,
+            'saveViewOptions' => $readConfig,
         ];
     }
 
