@@ -2,6 +2,7 @@
 
 use Sholokhov\Featureflag\Factory\FeatureFactory;
 use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
+use Sholokhov\Featureflag\Permission\ModulePermission;
 use Sholokhov\Featureflag\Repository\RuleRegistry;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
 use Sholokhov\Featureflag\Repository\FeatureRepository;
@@ -65,6 +66,9 @@ return [
             AdminFeatureFlagServiceInterface::class => [
                 'className' => AdminFeatureFlagService::class,
             ],
+            'sholokhov.featureflag.permission.module' => [
+                'className' => ModulePermission::class,
+            ]
         ]
     ]
 ];

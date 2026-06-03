@@ -11,9 +11,8 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_ad
 Loc::loadMessages(__FILE__);
 
 global $APPLICATION;
-global $USER;
 
-if (!$USER->isAdmin()) {
+if (!ServiceProvider::getModulePermission()->canRead()) {
     $APPLICATION->AuthForm(Loc::getMessage('ACCESS_DENIED'));
 }
 
@@ -25,6 +24,16 @@ if (!Loader::includeModule('sholokhov.featureflag')) {
     CAdminMessage::ShowMessage([
         'TYPE' => 'ERROR',
         'MESSAGE' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MODULE_NOT_INSTALLED'),
+    ]);
+
+    require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/epilog_admin.php';
+    return;
+}
+
+if (!ServiceProvider::getModulePermission()->canRead()) {
+    CAdminMessage::ShowMessage([
+            'TYPE' => 'ERROR',
+            'MESSAGE' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ACCESS_DENIED'),
     ]);
 
     require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/epilog_admin.php';

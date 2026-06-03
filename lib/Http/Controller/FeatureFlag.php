@@ -2,9 +2,12 @@
 
 namespace Sholokhov\Featureflag\Http\Controller;
 
+use Bitrix\Main\ObjectNotFoundException;
+use Psr\Container\NotFoundExceptionInterface;
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
 use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
+use Sholokhov\Featureflag\Http\Middleware\ReadAccessMiddleware;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
 use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
 use Sholokhov\Featureflag\Http\Request\TagIdRequest;
@@ -28,28 +31,38 @@ final class FeatureFlag extends Controller
 {
     /**
      * @return array<string, array<string, mixed>>
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
      */
     public function configureActions(): array
     {
-        $config = [
+        $permission = ServiceProvider::getModulePermission();
+
+        $adminConfig = [
             '+prefilters' => [
-                new AdminAccessMiddleware(),
-            ],
+                new AdminAccessMiddleware($permission)
+            ]
+        ];
+
+        $readConfig = [
+            '+prefilters' => [
+                new ReadAccessMiddleware($permission)
+            ]
         ];
 
         return [
-            'list' => $config,
-            'get' => $config,
-            'create' => $config,
-            'update' => $config,
-            'delete' => $config,
-            'toggle' => $config,
-            'tagList' => $config,
-            'tagCreate' => $config,
-            'tagUpdate' => $config,
-            'tagDelete' => $config,
-            'strategyList' => $config,
-            'saveViewOptions' => $config,
+            'list' => $readConfig,
+            'get' => $readConfig,
+            'create' => $adminConfig,
+            'update' => $adminConfig,
+            'delete' => $adminConfig,
+            'toggle' => $adminConfig,
+            'tagList' => $readConfig,
+            'tagCreate' => $adminConfig,
+            'tagUpdate' => $adminConfig,
+            'tagDelete' => $adminConfig,
+            'strategyList' => $readConfig,
+            'saveViewOptions' => $adminConfig,
         ];
     }
 

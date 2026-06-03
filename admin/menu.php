@@ -1,10 +1,11 @@
 <?php
 
 use Bitrix\Main\Localization\Loc;
+use Sholokhov\Featureflag\ServiceProvider;
 
 Loc::loadMessages(__FILE__);
 
-if (!$USER->isAdmin()) {
+if (!ServiceProvider::getModulePermission()->canRead()) {
     return false;
 }
 

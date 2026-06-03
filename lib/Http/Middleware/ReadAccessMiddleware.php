@@ -13,9 +13,9 @@ use Sholokhov\Featureflag\Permission\PermissionInterface;
 Loc::loadMessages(__FILE__);
 
 /**
- * Middleware-прослойка (Bitrix prefilter) для проверки прав администратора.
+ * Middleware-прослойка (Bitrix prefilter) для проверки прав на просмотр.
  */
-final class AdminAccessMiddleware extends Base
+final class ReadAccessMiddleware extends Base
 {
     private const ERROR_ACCESS_DENIED = 'access_denied';
     private PermissionInterface $permission;
@@ -32,7 +32,7 @@ final class AdminAccessMiddleware extends Base
      */
     public function onBeforeAction(Event $event): ?EventResult
     {
-        if ($this->permission->hasFullAccess()) {
+        if ($this->permission->canRead()) {
             return null;
         }
 
