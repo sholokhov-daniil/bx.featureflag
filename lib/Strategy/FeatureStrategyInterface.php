@@ -2,6 +2,8 @@
 
 namespace Sholokhov\Featureflag\Strategy;
 
+use Sholokhov\Featureflag\Field\FieldInterface;
+
 use Bitrix\Main\Result;
 
 /**
@@ -31,9 +33,19 @@ interface FeatureStrategyInterface
     public function getDescription(): string;
 
     /**
+     * Проверяет, можно ли использовать стратегию в текущем окружении.
+     *
+     * Метод должен быть безопасным и не вызывать {@see self::getFields()}:
+     * он нужен как guard перед загрузкой зависимых модулей и построением полей.
+     *
+     * @return StrategyAvailability
+     */
+    public function getAvailability(): StrategyAvailability;
+
+    /**
      * Описание полей настройки стратегии.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array;
 

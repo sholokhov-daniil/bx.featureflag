@@ -2,7 +2,10 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
-use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
+use Sholokhov\Featureflag\Field\TextareaField;
+use Sholokhov\Featureflag\Field\Validator\SiteIdListValidator;
 
 /**
  * Стратегия доступа по текущему SITE_ID.
@@ -42,43 +45,19 @@ final class SiteIdStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'siteIds',
-                'type' => 'textarea',
-                'label' => 'ID сайтов',
-                'placeholder' => 's1, s2',
-                'required' => true,
-            ],
+            (new TextareaField('siteIds'))
+                ->setName('ID сайтов')
+                ->setPlaceholder('s1, s2')
+                ->setRequired(true, 'Укажите хотя бы один ID сайта.')
+                ->setNormalizer(static fn(mixed $value): array => ListNormalizer::strings($value))
+                ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
+                ->addValidator(new SiteIdListValidator())
         ];
-    }
-
-    /**
-     * Валидирует и нормализует список ID сайтов.
-     *
-     * @param array<string, mixed> $config
-     * @return Result
-     */
-    public function normalizeConfig(array $config): Result
-    {
-        $siteIds = $this->splitValues($config['siteIds'] ?? []);
-        if ($siteIds === []) {
-            return $this->error('Укажите хотя бы один ID сайта.');
-        }
-
-        foreach ($siteIds as $siteId) {
-            if (!preg_match('/^[A-Za-z0-9_.-]{1,50}$/', $siteId)) {
-                return $this->error("Некорректный ID сайта: {$siteId}");
-            }
-        }
-
-        return $this->success([
-            'siteIds' => $siteIds,
-        ]);
     }
 
     /**

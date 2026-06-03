@@ -1,0 +1,16 @@
+.ff-app,
+.ff-app * {
+  box-sizing: border-box;
+}
+
+.ff-app {
+  color: #122033;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  padding: 24px 24px 32px;
+}
+
+@media (max-width: 960px) {
+  .ff-app {
+    padding: 18px 16px 24px;
+  }
+}

@@ -4,15 +4,15 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
 use Bitrix\Main\UI\Extension;
 use Bitrix\Main\Web\Json;
+use Sholokhov\Featureflag\ServiceProvider;
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_admin_before.php';
 
 Loc::loadMessages(__FILE__);
 
 global $APPLICATION;
-global $USER;
 
-if (!$USER->isAdmin()) {
+if (!ServiceProvider::getModulePermission()->canRead()) {
     $APPLICATION->AuthForm(Loc::getMessage('ACCESS_DENIED'));
 }
 
@@ -30,11 +30,24 @@ if (!Loader::includeModule('sholokhov.featureflag')) {
     return;
 }
 
+if (!ServiceProvider::getModulePermission()->canRead()) {
+    CAdminMessage::ShowMessage([
+            'TYPE' => 'ERROR',
+            'MESSAGE' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_ACCESS_DENIED'),
+    ]);
+
+    require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/epilog_admin.php';
+    return;
+}
+
 Extension::load('sholokhov.featureflag-admin');
+
+$viewOptionsResult = ServiceProvider::getAdminFeatureFlagService()->getViewOptions();
 
 $bootstrap = [
     'view' => 'flags',
     'langId' => LANGUAGE_ID,
+    'viewOptions' => $viewOptionsResult->isSuccess() ? ($viewOptionsResult->getData()['viewOptions'] ?? []) : [],
     'actions' => [
         'list' => 'sholokhov:featureflag.FeatureFlag.list',
         'get' => 'sholokhov:featureflag.FeatureFlag.get',
@@ -47,6 +60,7 @@ $bootstrap = [
         'tagUpdate' => 'sholokhov:featureflag.FeatureFlag.tagUpdate',
         'tagDelete' => 'sholokhov:featureflag.FeatureFlag.tagDelete',
         'strategyList' => 'sholokhov:featureflag.FeatureFlag.strategyList',
+        'saveViewOptions' => 'sholokhov:featureflag.FeatureFlag.saveViewOptions',
     ],
 ];
 ?>

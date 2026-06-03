@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import '../assets/styles/toggleSwitch.css'
+
 defineProps<{
   checked: boolean
   disabled?: boolean

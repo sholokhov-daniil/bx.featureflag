@@ -1,0 +1,97 @@
+.ff-button {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  min-height: 42px;
+  padding: 0 18px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ff-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ff-button--primary {
+  background: linear-gradient(135deg, #2677ff 0%, #1758d8 100%);
+  box-shadow: 0 14px 26px rgba(38, 119, 255, 0.22);
+  color: #fff;
+}
+
+.ff-button--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #216ef0 0%, #144fca 100%);
+}
+
+.ff-button--ghost {
+  background: #fff;
+  border-color: #d2ddeb;
+  color: #24364a;
+}
+
+.ff-button--ghost:hover:not(:disabled) {
+  background: #f7fafe;
+  border-color: #bed0e5;
+}
+
+.ff-button--danger {
+  background: #fff4f3;
+  border-color: #f0c5c1;
+  color: #a03228;
+}
+
+.ff-button--danger:hover:not(:disabled) {
+  background: #fdeceb;
+}
+
+.ff-button--compact {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.ff-icon-button {
+  align-items: center;
+  appearance: none;
+  background: #f5f8fc;
+  border: 1px solid #d5dfec;
+  border-radius: 8px;
+  color: #304155;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 22px;
+  height: 40px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 40px;
+}
+
+.ff-icon-button:hover {
+  background: #edf3fb;
+}
+
+.ff-actions {
+  align-items: center;
+  border-top: 1px solid #e8eef6;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.ff-actions__group {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .ff-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+}

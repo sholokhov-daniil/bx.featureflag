@@ -3,6 +3,7 @@
 namespace Sholokhov\Featureflag;
 
 use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
+use Sholokhov\Featureflag\Permission\PermissionInterface;
 use Sholokhov\Featureflag\Repository\FeatureRepositoryInterface;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
 use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
@@ -15,6 +16,18 @@ use Psr\Container\NotFoundExceptionInterface;
 
 class ServiceProvider
 {
+    /**
+     * Возвращает права доступа к модулю
+     *
+     * @return PermissionInterface
+     * @throws NotFoundExceptionInterface
+     * @throws ObjectNotFoundException
+     */
+    public static function getModulePermission(): PermissionInterface
+    {
+        return ServiceLocator::getInstance()->get('sholokhov.featureflag.permission.module');
+    }
+
     /**
      * Возвращает сборщик флагов
      *

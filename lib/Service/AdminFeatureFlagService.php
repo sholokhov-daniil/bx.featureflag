@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Sholokhov\Featureflag\Service;
 
+use Throwable;
+
+use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
+use Sholokhov\Featureflag\Feature;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\ORM\FeatureTable;
+use Sholokhov\Featureflag\ORM\FeatureTagTable;
+use Sholokhov\Featureflag\ServiceProvider;
+
 use Bitrix\Main\ArgumentException;
 use Bitrix\Main\Error;
 use Bitrix\Main\Localization\Loc;
@@ -11,13 +20,8 @@ use Bitrix\Main\ObjectNotFoundException;
 use Bitrix\Main\ObjectPropertyException;
 use Bitrix\Main\Result;
 use Bitrix\Main\SystemException;
+
 use Psr\Container\NotFoundExceptionInterface;
-use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
-use Sholokhov\Featureflag\Feature;
-use Sholokhov\Featureflag\ORM\FeatureTable;
-use Sholokhov\Featureflag\ORM\FeatureTagTable;
-use Sholokhov\Featureflag\ServiceProvider;
-use Throwable;
 
 /**
  * Координирует админские сценарии управления фича-флагами.
@@ -33,6 +37,10 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     private const string CODE_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._-]*$/';
     private const int MAX_CODE_LENGTH = 255;
     private const int MAX_TAG_NAME_LENGTH = 255;
+    private const string VIEW_OPTIONS_CATEGORY = 'sholokhov.featureflag';
+    private const string VIEW_OPTIONS_NAME = 'admin_list_view';
+    private const string DISPLAY_MODE_CARDS = 'cards';
+    private const string DISPLAY_MODE_TABLE = 'table';
 
     /**
      * @var AdminFeatureFlagPresenter Presenter API-ответов админки.
@@ -366,11 +374,31 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             $items = [];
 
             foreach (ServiceProvider::getStrategyRegistry()->getAll() as $strategy) {
+                $availability = $strategy->getAvailability();
+                $isAvailable = $availability->isAvailable();
+                $unavailableReason = $isAvailable ? '' : $availability->getReason();
+                $fields = [];
+
+                if ($isAvailable) {
+                    try {
+                        $fields = array_map(
+                            static fn(FieldInterface $field) => $field->toArray(),
+                            $strategy->getFields()
+                        );
+                    } catch (Throwable $exception) {
+                        $isAvailable = false;
+                        $unavailableReason = $exception->getMessage();
+                        $fields = [];
+                    }
+                }
+
                 $items[] = [
                     'code' => $strategy->getCode(),
                     'name' => $strategy->getName(),
                     'description' => $strategy->getDescription(),
-                    'fields' => $strategy->getFields(),
+                    'available' => $isAvailable,
+                    'unavailableReason' => $unavailableReason,
+                    'fields' => $fields,
                 ];
             }
 
@@ -383,6 +411,48 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     }
 
     /**
+     * Возвращает пользовательские настройки отображения списка фича-флагов.
+     *
+     * @return Result{viewOptions: array{displayMode: string}}
+     */
+    public function getViewOptions(): Result
+    {
+        return $this->success([
+            'viewOptions' => [
+                'displayMode' => $this->getStoredDisplayMode(),
+            ],
+        ]);
+    }
+
+    /**
+     * Сохраняет пользовательский способ отображения списка фича-флагов.
+     *
+     * @param string $displayMode Код способа отображения.
+     * @return Result{viewOptions: array{displayMode: string}}
+     */
+    public function saveViewOptions(string $displayMode): Result
+    {
+        $displayMode = $this->normalizeDisplayMode($displayMode);
+        if ($displayMode === null) {
+            return (new Result)->addError(new Error('Некорректный способ отображения списка фича-флагов'));
+        }
+
+        \CUserOptions::SetOption(
+            self::VIEW_OPTIONS_CATEGORY,
+            self::VIEW_OPTIONS_NAME,
+            [
+                'displayMode' => $displayMode,
+            ],
+        );
+
+        return $this->success([
+            'viewOptions' => [
+                'displayMode' => $displayMode,
+            ],
+        ]);
+    }
+
+    /**
      * Создаёт успешный Result с данными.
      *
      * @param array<string, mixed> $data Данные результата.
@@ -391,6 +461,41 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     private function success(array $data): Result
     {
         return (new Result())->setData($data);
+    }
+
+    /**
+     * Возвращает сохранённый пользовательский способ отображения.
+     *
+     * @return string
+     */
+    private function getStoredDisplayMode(): string
+    {
+        $options = \CUserOptions::GetOption(
+            self::VIEW_OPTIONS_CATEGORY,
+            self::VIEW_OPTIONS_NAME,
+            []
+        );
+
+        if (!is_array($options)) {
+            return self::DISPLAY_MODE_CARDS;
+        }
+
+        return $this->normalizeDisplayMode((string)($options['displayMode'] ?? '')) ?? self::DISPLAY_MODE_CARDS;
+    }
+
+    /**
+     * Нормализует код способа отображения списка.
+     *
+     * @param string $displayMode Исходный код способа отображения.
+     * @return string|null Нормализованный код или null.
+     */
+    private function normalizeDisplayMode(string $displayMode): ?string
+    {
+        return match ($displayMode) {
+            self::DISPLAY_MODE_CARDS,
+            self::DISPLAY_MODE_TABLE => $displayMode,
+            default => null,
+        };
     }
 
     /**

@@ -1,0 +1,20 @@
+.ff-meta {
+  border-top: 1px solid #e8eef6;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.ff-meta__item {
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .ff-meta {
+    gap: 14px;
+    grid-template-columns: 1fr;
+  }
+}

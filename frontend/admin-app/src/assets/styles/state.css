@@ -1,0 +1,18 @@
+.ff-state,
+.ff-empty {
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.ff-state {
+  color: #6d7d93;
+}
+
+.ff-state--error {
+  color: #962d23;
+}
+
+.ff-empty__title {
+  color: #33455b;
+  margin-bottom: 16px;
+}

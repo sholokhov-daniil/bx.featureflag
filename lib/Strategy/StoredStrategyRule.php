@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag\Strategy;
 
+use Throwable;
 use Sholokhov\Featureflag\RuleInterface;
 
 /**
@@ -49,9 +50,17 @@ final readonly class StoredStrategyRule implements RuleInterface
                 continue;
             }
 
-            $strategy = $this->registry->get($type);
-            if ($strategy !== null && $strategy->isEnabled($code, $config)) {
-                return true;
+            try {
+                $strategy = $this->registry->get($type);
+                if ($strategy === null || !$strategy->getAvailability()->isAvailable()) {
+                    continue;
+                }
+
+                if ($strategy->isEnabled($code, $config)) {
+                    return true;
+                }
+            } catch (Throwable) {
+                continue;
             }
         }
 

@@ -12,6 +12,7 @@ use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\UserTable;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\ORM\FeatureTagTable;
+use Sholokhov\Featureflag\ServiceProvider;
 
 /**
  * Преобразует ORM-строки фича-флагов и тегов в стабильный формат API админки.
@@ -329,6 +330,52 @@ final class AdminFeatureFlagPresenter
             return [];
         }
 
-        return array_values($value);
+        $items = [];
+
+        foreach (array_values($value) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $type = (string)($item['type'] ?? '');
+            $config = $item['config'] ?? [];
+
+            $items[] = [
+                'type' => $type,
+                'config' => $this->denormalizeStrategyConfig($type, is_array($config) ? $config : []),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * Денормализует конфигурацию стратегии для ответа админского API.
+     *
+     * @param string $type Код стратегии
+     * @param array<string, mixed> $config Сохранённая конфигурация
+     * @return array<string, mixed> Конфигурация для UI
+     */
+    private function denormalizeStrategyConfig(string $type, array $config): array
+    {
+        try {
+            $strategy = ServiceProvider::getStrategyRegistry()->get($type);
+
+            if ($strategy !== null && !$strategy->getAvailability()->isAvailable()) {
+                return $config;
+            }
+
+            if ($strategy !== null && method_exists($strategy, 'denormalizeConfig')) {
+                /** @var callable $denormalizer */
+                $denormalizer = [$strategy, 'denormalizeConfig'];
+                $denormalizedConfig = $denormalizer($config);
+
+                return is_array($denormalizedConfig) ? $denormalizedConfig : $config;
+            }
+        } catch (\Throwable) {
+            return $config;
+        }
+
+        return $config;
     }
 }

@@ -4,17 +4,21 @@ namespace Sholokhov\Featureflag\Http\Controller;
 
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
-use Sholokhov\Featureflag\Http\Middleware\AdminAccessMiddleware;
+use Sholokhov\Featureflag\Http\Middleware\WriteAccessMiddleware;
+use Sholokhov\Featureflag\Http\Middleware\ReadAccessMiddleware;
 use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
 use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
 use Sholokhov\Featureflag\Http\Request\TagIdRequest;
 use Sholokhov\Featureflag\Http\Request\TagUpdateRequest;
-use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
 use Sholokhov\Featureflag\ServiceProvider;
+use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
 
-use Bitrix\Main\Engine\AutoWire\Parameter;
-use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\Result;
+use Bitrix\Main\Engine\Controller;
+use Bitrix\Main\ObjectNotFoundException;
+use Bitrix\Main\Engine\AutoWire\Parameter;
+
+use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * HTTP-контроллер админки фича-флагов.
@@ -28,27 +32,38 @@ final class FeatureFlag extends Controller
 {
     /**
      * @return array<string, array<string, mixed>>
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
      */
     public function configureActions(): array
     {
-        $config = [
+        $permission = ServiceProvider::getModulePermission();
+
+        $writeConfig = [
             '+prefilters' => [
-                new AdminAccessMiddleware(),
-            ],
+                new WriteAccessMiddleware($permission)
+            ]
+        ];
+
+        $readConfig = [
+            '+prefilters' => [
+                new ReadAccessMiddleware($permission)
+            ]
         ];
 
         return [
-            'list' => $config,
-            'get' => $config,
-            'create' => $config,
-            'update' => $config,
-            'delete' => $config,
-            'toggle' => $config,
-            'tagList' => $config,
-            'tagCreate' => $config,
-            'tagUpdate' => $config,
-            'tagDelete' => $config,
-            'strategyList' => $config,
+            'list' => $readConfig,
+            'get' => $readConfig,
+            'create' => $writeConfig,
+            'update' => $writeConfig,
+            'delete' => $writeConfig,
+            'toggle' => $writeConfig,
+            'tagList' => $readConfig,
+            'tagCreate' => $writeConfig,
+            'tagUpdate' => $writeConfig,
+            'tagDelete' => $writeConfig,
+            'strategyList' => $readConfig,
+            'saveViewOptions' => $readConfig,
         ];
     }
 
@@ -269,6 +284,20 @@ final class FeatureFlag extends Controller
     {
         return $this->resolveServiceResult(
             $service->strategyList(),
+        );
+    }
+
+    /**
+     * Сохраняет пользовательские настройки отображения списка фича-флагов.
+     *
+     * @param string $displayMode
+     * @param AdminFeatureFlagServiceInterface $service
+     * @return array<string, mixed>|null
+     */
+    public function saveViewOptionsAction(string $displayMode, AdminFeatureFlagServiceInterface $service): ?array
+    {
+        return $this->resolveServiceResult(
+            $service->saveViewOptions($displayMode),
         );
     }
 

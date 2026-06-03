@@ -2,7 +2,14 @@
 
 namespace Sholokhov\Featureflag\Strategies;
 
-use Bitrix\Main\Result;
+use Sholokhov\Featureflag\Field\EntitySelector\UserField;
+use Sholokhov\Featureflag\Field\FieldInterface;
+use Sholokhov\Featureflag\Field\Normalizer\ListNormalizer;
+use Sholokhov\Featureflag\Field\Validator\PositiveIntegerListValidator;
+use Sholokhov\Featureflag\Strategy\StrategyAvailability;
+
+use Bitrix\Main\Loader;
+use Bitrix\Main\LoaderException;
 
 /**
  * Стратегия доступа по ID пользователей.
@@ -42,37 +49,18 @@ final class UserIdStrategy extends AbstractStrategy
     /**
      * Возвращает схему полей формы.
      *
-     * @return array<int, array<string, mixed>>
+     * @return FieldInterface[]
      */
     public function getFields(): array
     {
         return [
-            [
-                'code' => 'userIds',
-                'type' => 'textarea',
-                'label' => 'ID пользователей',
-                'placeholder' => '1, 15, 42',
-                'required' => true,
-            ],
+            (new UserField('userIds'))
+                ->setName('ID пользователей')
+                ->setRequired(true, 'Укажите хотя бы один ID пользователя.')
+                ->setNormalizer(static fn(mixed $value): array => ListNormalizer::positiveIntegers($value))
+                ->setDenormalizer(static fn(mixed $value): string => ListNormalizer::denormalize($value))
+                ->addValidator(new PositiveIntegerListValidator('Некорректный ID пользователя: %s'))
         ];
-    }
-
-    /**
-     * Валидирует и нормализует список ID пользователей.
-     *
-     * @param array<string, mixed> $config
-     * @return Result
-     */
-    public function normalizeConfig(array $config): Result
-    {
-        $userIds = $this->normalizePositiveIds($config['userIds'] ?? []);
-        if ($userIds === []) {
-            return $this->error('Укажите хотя бы один ID пользователя.');
-        }
-
-        return $this->success([
-            'userIds' => $userIds,
-        ]);
     }
 
     /**
@@ -94,6 +82,19 @@ final class UserIdStrategy extends AbstractStrategy
     }
 
     /**
+     * Проверяет, доступна ли стратегия в текущем окружении.
+     *
+     * @return StrategyAvailability
+     * @throws LoaderException
+     */
+    public function getAvailability(): StrategyAvailability
+    {
+        return Loader::includeModule('ui')
+            ? StrategyAvailability::available()
+            : StrategyAvailability::unavailableModule('ui');
+    }
+
+    /**
      * Возвращает ID текущего пользователя.
      *
      * @return int
@@ -101,11 +102,6 @@ final class UserIdStrategy extends AbstractStrategy
     private function getCurrentUserId(): int
     {
         global $USER;
-
-        if (is_object($USER) && method_exists($USER, 'GetID')) {
-            return (int)$USER->GetID();
-        }
-
-        return 0;
+        return $USER ? $USER->GetID() : 0;
     }
 }

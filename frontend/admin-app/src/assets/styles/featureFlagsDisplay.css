@@ -1,0 +1,163 @@
+.ff-list-toolbar {
+  align-items: center;
+  border-bottom: 1px solid #e7edf5;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.ff-list-toolbar__group {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.ff-list-toolbar__label {
+  color: #6d7d93;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.ff-view-switch {
+  align-items: center;
+  background: #f4f7fb;
+  border: 1px solid #d9e3ef;
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+.ff-view-switch__button {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #40516a;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  height: 34px;
+  justify-content: center;
+  min-width: 84px;
+  padding: 0 12px;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ff-view-switch__button:hover {
+  color: #1155cc;
+}
+
+.ff-view-switch__button.is-active {
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(15, 35, 64, 0.1);
+  color: #1155cc;
+}
+
+.ff-view-switch__icon {
+  color: currentColor;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.ff-view-switch__icon--cards {
+  background:
+    linear-gradient(currentColor 0 0) left top / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) right top / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) left bottom / 6px 6px no-repeat,
+    linear-gradient(currentColor 0 0) right bottom / 6px 6px no-repeat;
+  border-radius: 2px;
+}
+
+.ff-view-switch__icon--table {
+  background:
+    linear-gradient(currentColor 0 0) left 1px top 1px / 14px 2px no-repeat,
+    linear-gradient(currentColor 0 0) left 1px center / 14px 2px no-repeat,
+    linear-gradient(currentColor 0 0) left 1px bottom 1px / 14px 2px no-repeat;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
+
+.ff-pagination {
+  align-items: center;
+  border-top: 1px solid #e8eef6;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.ff-pagination__summary {
+  color: #667893;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ff-pagination__controls {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.ff-pagination__button {
+  align-items: center;
+  appearance: none;
+  background: #fff;
+  border: 1px solid #d6e0ed;
+  border-radius: 8px;
+  color: #52627a;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 16px;
+  font-weight: 700;
+  height: 36px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 36px;
+  padding: 0 10px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.ff-pagination__button:hover:not(:disabled) {
+  background: #f7fafe;
+  border-color: #9fb8dc;
+  color: #1155cc;
+}
+
+.ff-pagination__button.is-active {
+  border-color: #2677ff;
+  color: #1155cc;
+}
+
+.ff-pagination__button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (max-width: 720px) {
+  .ff-list-toolbar,
+  .ff-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ff-list-toolbar__group,
+  .ff-pagination__controls {
+    justify-content: space-between;
+  }
+
+  .ff-view-switch {
+    width: 100%;
+  }
+
+  .ff-view-switch__button {
+    flex: 1;
+    min-width: 0;
+  }
+}
