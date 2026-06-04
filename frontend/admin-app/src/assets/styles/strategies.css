@@ -34,6 +34,13 @@
   border-color: #f3c779;
 }
 
+.ff-strategy-row__title {
+  color: #122033;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .ff-strategy-row__top {
   align-items: center;
   display: grid;

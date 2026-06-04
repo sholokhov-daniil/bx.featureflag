@@ -18,6 +18,7 @@ import '../assets/styles/panel.css'
 import '../assets/styles/state.css'
 
 defineProps<{
+  canWrite: boolean
   currentPage: number
   displayMode: FeatureFlagsDisplayMode
   displayOptions: FeatureFlagsDisplayOption[]
@@ -59,7 +60,7 @@ const emit = defineEmits<{
       <div class="ff-empty__title">
         {{ Loc('SHOLOKHOV_FEATUREFLAG_EMPTY_LIST') }}
       </div>
-      <button type="button" class="ff-button ff-button--primary" @click="emit('create')">
+      <button v-if="canWrite" type="button" class="ff-button ff-button--primary" @click="emit('create')">
         {{ Loc('SHOLOKHOV_FEATUREFLAG_BTN_ADD') }}
       </button>
     </div>
@@ -87,6 +88,7 @@ const emit = defineEmits<{
       <FeatureFlagsDisplay
         v-if="totalItems > 0"
         :mode="displayMode"
+        :can-write="canWrite"
         :flags="flags"
         :processing-codes="processingCodes"
         :strategy-types="strategyTypes"

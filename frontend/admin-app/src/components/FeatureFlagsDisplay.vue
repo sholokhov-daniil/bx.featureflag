@@ -4,6 +4,7 @@ import FeatureFlagsCards from './FeatureFlagsCards.vue'
 import FeatureFlagsTable from './FeatureFlagsTable.vue'
 
 defineProps<{
+  canWrite: boolean
   mode: FeatureFlagsDisplayMode
   flags: FeatureFlagItem[]
   processingCodes: string[]
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 <template>
   <FeatureFlagsCards
     v-if="mode === 'cards'"
+    :can-write="canWrite"
     :flags="flags"
     :processing-codes="processingCodes"
     :strategy-types="strategyTypes"
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 
   <FeatureFlagsTable
     v-else-if="mode === 'table'"
+    :can-write="canWrite"
     :flags="flags"
     :processing-codes="processingCodes"
     :strategy-types="strategyTypes"

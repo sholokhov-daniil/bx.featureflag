@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   FieldErrors,
   FeatureFlagDetailMeta,
@@ -12,15 +12,19 @@ import type {
   StrategyTypeItem,
 } from '@/types/featureFlag'
 import { Loc } from '@/utils/localization'
+import { dateToServerFormat } from '@/utils/featureFlagDates'
+import FeatureFlagStatusBadge from './FeatureFlagStatusBadge.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 import FeatureFlagMeta from './FeatureFlagMeta.vue'
+import FeatureStrategiesReadonly from './FeatureStrategiesReadonly.vue'
 import FeatureStrategiesEditor from './FeatureStrategiesEditor.vue'
 import '../assets/styles/buttons.css'
 import '../assets/styles/form.css'
 import '../assets/styles/modal.css'
 import '../assets/styles/state.css'
 
-defineProps<{
+const props = defineProps<{
+  canWrite: boolean
   detailMeta: FeatureFlagDetailMeta
   editingCode: string
   fieldErrors: FieldErrors
@@ -51,6 +55,9 @@ const emit = defineEmits<{
 }>()
 
 const shouldCloseOnOverlayClick = ref(false)
+const selectedTagName = computed(() => props.tags.find((tag) => String(tag.id) === props.form.tagId)?.name
+  ?? Loc('SHOLOKHOV_FEATUREFLAG_TAG_WITHOUT'))
+const removePlannedAtText = computed(() => dateToServerFormat(props.form.removePlannedAt) ?? 'Не указана')
 
 function armOverlayClose(): void {
   shouldCloseOnOverlayClick.value = true
@@ -76,6 +83,12 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
   }
 
   emit('updateFormField', field, target.value)
+}
+
+function submit(): void {
+  if (props.canWrite) {
+    emit('submit')
+  }
 }
 </script>
 
@@ -108,7 +121,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
           {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_LOADING') }}
         </div>
 
-        <form v-else class="ff-form" @submit.prevent="emit('submit')">
+        <form v-else class="ff-form" @submit.prevent="submit">
           <div v-if="formErrors.length" class="ff-form-errors">
             <div v-for="error in formErrors" :key="error">
               {{ error }}
@@ -124,12 +137,14 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED') }}</span>
               <div class="ff-field__value">
                 <ToggleSwitch
+                  v-if="canWrite"
                   :checked="form.enabled"
                   :disabled="isSaving || isDeleting"
                   :label-on="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_ON')"
                   :label-off="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')"
                   @change="emit('updateFormField', 'enabled', $event)"
                 />
+                <FeatureFlagStatusBadge v-else :enabled="form.enabled" />
               </div>
               <div v-if="fieldErrors.enabled.length" class="ff-field-errors">
                 <div v-for="(error, index) in fieldErrors.enabled" :key="`enabled-${index}-${error}`">
@@ -141,7 +156,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
             <div class="ff-field">
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CODE') }}</span>
               <input
-                v-if="!isEditMode"
+                v-if="canWrite && !isEditMode"
                 :value="form.code"
                 type="text"
                 class="ff-input ff-input--code"
@@ -152,7 +167,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                 @input="updateTextField('code', $event)"
               />
               <div v-else class="ff-field__value ff-field__value--mono">
-                {{ editingCode }}
+                {{ editingCode || form.code }}
               </div>
               <div v-if="fieldErrors.code.length" class="ff-field-errors">
                 <div v-for="(error, index) in fieldErrors.code" :key="`code-${index}-${error}`">
@@ -161,7 +176,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
               </div>
             </div>
 
-            <label class="ff-field">
+            <label v-if="canWrite" class="ff-field">
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_FIELD_NAME') }}</span>
               <input
                 :value="form.name"
@@ -177,10 +192,15 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                 </div>
               </div>
             </label>
+            <div v-else class="ff-field">
+              <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_FIELD_NAME') }}</span>
+              <span class="ff-field__value">{{ form.name || '—' }}</span>
+            </div>
 
             <div class="ff-field">
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_TAG') }}</span>
               <select
+                v-if="canWrite"
                 :value="form.tagId"
                 :class="['ff-select', { 'is-invalid': fieldErrors.tagId.length > 0 }]"
                 :disabled="isSaving || isDeleting"
@@ -191,6 +211,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                   {{ tagItem.name }}
                 </option>
               </select>
+              <span v-else class="ff-field__value">{{ selectedTagName }}</span>
               <div v-if="fieldErrors.tagId.length" class="ff-field-errors">
                 <div v-for="(error, index) in fieldErrors.tagId" :key="`tagId-${index}-${error}`">
                   {{ error }}
@@ -198,7 +219,7 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
               </div>
             </div>
 
-            <label class="ff-field ff-field--full">
+            <label v-if="canWrite" class="ff-field ff-field--full">
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION') }}</span>
               <textarea
                 :value="form.description"
@@ -214,8 +235,12 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                 </div>
               </div>
             </label>
+            <div v-else class="ff-field ff-field--full">
+              <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_DESCRIPTION') }}</span>
+              <span class="ff-field__value ff-field__value--multiline">{{ form.description || '—' }}</span>
+            </div>
 
-            <label class="ff-field ff-field--full">
+            <label v-if="canWrite" class="ff-field ff-field--full">
               <span class="ff-field__label">Плановая дата удаления</span>
               <input
                 :value="form.removePlannedAt"
@@ -225,8 +250,13 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                 @input="updateTextField('removePlannedAt', $event)"
               />
             </label>
+            <div v-else class="ff-field ff-field--full">
+              <span class="ff-field__label">Плановая дата удаления</span>
+              <span class="ff-field__value">{{ removePlannedAtText }}</span>
+            </div>
 
             <FeatureStrategiesEditor
+              v-if="canWrite"
               :disabled="isSaving || isDeleting"
               :field-errors="fieldErrors"
               :get-strategy-fields="getStrategyFields"
@@ -238,11 +268,17 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
               @change-type="(strategy, type) => emit('changeStrategyType', strategy, type)"
               @field-change="(value, strategy, field) => emit('strategyFieldChange', value, strategy, field)"
             />
+            <FeatureStrategiesReadonly
+              v-else
+              :get-strategy-fields="getStrategyFields"
+              :strategies="form.strategies"
+              :strategy-types="strategyTypes"
+            />
           </div>
 
           <FeatureFlagMeta v-if="isEditMode" :meta="detailMeta" />
 
-          <div class="ff-actions">
+          <div v-if="canWrite" class="ff-actions">
             <div class="ff-actions__group">
               <button
                 v-if="isEditMode"
@@ -269,6 +305,14 @@ function updateTextField(field: FeatureFlagEditableField, event: Event): void {
                 :disabled="isSaving || isDeleting"
               >
                 {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_BTN_SAVE') }}
+              </button>
+            </div>
+          </div>
+          <div v-else class="ff-actions">
+            <div></div>
+            <div class="ff-actions__group">
+              <button type="button" class="ff-button ff-button--ghost" @click="emit('dismiss')">
+                {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_CLOSE_LABEL') }}
               </button>
             </div>
           </div>

@@ -47,6 +47,7 @@ $viewOptionsResult = ServiceProvider::getAdminFeatureFlagService()->getViewOptio
 $bootstrap = [
     'view' => 'flags',
     'langId' => LANGUAGE_ID,
+    'canWrite' => ServiceProvider::getModulePermission()->canWrite(),
     'viewOptions' => $viewOptionsResult->isSuccess() ? ($viewOptionsResult->getData()['viewOptions'] ?? []) : [],
     'actions' => [
         'list' => 'sholokhov:featureflag.FeatureFlag.list',

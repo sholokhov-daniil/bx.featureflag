@@ -7,6 +7,7 @@ declare global {
     SholokhovFeatureFlagAdmin?: {
       view?: 'flags' | 'tags'
       langId: string
+      canWrite?: boolean
       actions: Record<string, string>
       messages: Record<string, string>
       viewOptions?: {

@@ -4,6 +4,7 @@ import FeatureFlagCard from './FeatureFlagCard.vue'
 import '../assets/styles/featureFlagsCards.css'
 
 defineProps<{
+  canWrite: boolean
   flags: FeatureFlagItem[]
   processingCodes: string[]
   strategyTypes: StrategyTypeItem[]
@@ -20,6 +21,7 @@ const emit = defineEmits<{
     <FeatureFlagCard
       v-for="flag in flags"
       :key="flag.code"
+      :can-write="canWrite"
       :flag="flag"
       :processing-codes="processingCodes"
       :strategy-types="strategyTypes"

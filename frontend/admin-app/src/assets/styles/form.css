@@ -81,6 +81,11 @@
   font-size: 13px;
 }
 
+.ff-field__value--multiline {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .ff-input,
 .ff-textarea,
 .ff-select {

@@ -3,11 +3,13 @@ import { computed } from 'vue'
 import type { FeatureFlagItem, RemovalState, StrategyTypeItem } from '@/types/featureFlag'
 import { getFlagRemovalState } from '@/utils/featureFlagDates'
 import { Loc } from '@/utils/localization'
+import FeatureFlagStatusBadge from './FeatureFlagStatusBadge.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
 import '../assets/styles/featureFlagsCards.css'
 import '../assets/styles/textUtilities.css'
 
 const props = defineProps<{
+  canWrite: boolean
   flag: FeatureFlagItem
   processingCodes: string[]
   strategyTypes: StrategyTypeItem[]
@@ -53,12 +55,14 @@ function isProcessing(): boolean {
         </div>
 
         <ToggleSwitch
+          v-if="canWrite"
           :checked="flag.enabled"
           :disabled="isProcessing()"
           :label-on="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_ON')"
           :label-off="Loc('SHOLOKHOV_FEATUREFLAG_STATUS_OFF')"
           @change="emit('toggle', flag, $event)"
         />
+        <FeatureFlagStatusBadge v-else :enabled="flag.enabled" />
       </div>
 
       <p v-if="flag.description" class="ff-flag-card__description">
