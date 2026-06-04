@@ -120,15 +120,6 @@ function isProcessing(): boolean {
           {{ flag.removePlannedAt || 'Не указана' }}
         </span>
       </div>
-
-      <button
-        type="button"
-        class="ff-flag-card__menu"
-        :aria-label="Loc('SHOLOKHOV_FEATUREFLAG_TAGS_OPEN_DETAIL')"
-        @click="emit('edit', flag.code)"
-      >
-        ...
-      </button>
     </div>
   </article>
 </template>
