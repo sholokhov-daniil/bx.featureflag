@@ -183,6 +183,7 @@ export interface StrategyTypeItem {
 
 export interface BootstrapConfig {
   actions: Record<string, string>
+  canWrite?: boolean
   viewOptions?: FeatureFlagsViewOptions
   urls?: Record<string, string>
 }

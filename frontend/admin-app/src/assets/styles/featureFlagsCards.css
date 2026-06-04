@@ -183,29 +183,6 @@
   font-weight: 700;
 }
 
-.ff-flag-card__menu {
-  align-items: center;
-  appearance: none;
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  color: #52627a;
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 16px;
-  font-weight: 700;
-  height: 36px;
-  justify-content: center;
-  line-height: 1;
-  padding: 0;
-  width: 36px;
-}
-
-.ff-flag-card__menu:hover {
-  background: #eef4fb;
-  color: #1155cc;
-}
-
 @media (max-width: 1180px) {
   .ff-flag-cards {
     grid-template-columns: 1fr;

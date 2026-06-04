@@ -4,6 +4,7 @@ import '../assets/styles/adminHero.css'
 import '../assets/styles/buttons.css'
 
 defineProps<{
+  canWrite: boolean
   totalFlags: string
 }>()
 
@@ -32,7 +33,7 @@ const emit = defineEmits<{
           <button type="button" class="ff-button ff-button--ghost" @click="emit('manageTags')">
             {{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_MANAGE') }}
           </button>
-          <button type="button" class="ff-button ff-button--primary" @click="emit('create')">
+          <button v-if="canWrite" type="button" class="ff-button ff-button--primary" @click="emit('create')">
             {{ Loc('SHOLOKHOV_FEATUREFLAG_BTN_ADD') }}
           </button>
         </div>

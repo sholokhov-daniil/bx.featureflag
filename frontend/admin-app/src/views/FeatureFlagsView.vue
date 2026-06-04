@@ -36,6 +36,10 @@ import '../assets/styles/adminShell.css'
 
 const FLAGS_PAGE_SIZE = 10
 
+const props = defineProps<{
+  canWrite: boolean
+}>()
+
 const emit = defineEmits<{
   manageTags: []
 }>()
@@ -180,6 +184,10 @@ async function loadStrategyTypes(): Promise<void> {
 }
 
 function openCreateModal(): void {
+  if (!props.canWrite) {
+    return
+  }
+
   modalMode.value = 'create'
   editingCode.value = ''
   resetForm()
@@ -230,7 +238,7 @@ function dismissModal(): void {
 }
 
 async function submitForm(): Promise<void> {
-  if (isSaving.value) {
+  if (!props.canWrite || isSaving.value) {
     return
   }
 
@@ -278,7 +286,7 @@ async function submitForm(): Promise<void> {
 }
 
 async function deleteCurrentFlag(): Promise<void> {
-  if (!isEditMode.value || isDeleting.value || !confirm(Loc('SHOLOKHOV_FEATUREFLAG_TAGS_CONFIRM_DELETE'))) {
+  if (!props.canWrite || !isEditMode.value || isDeleting.value || !confirm(Loc('SHOLOKHOV_FEATUREFLAG_TAGS_CONFIRM_DELETE'))) {
     return
   }
 
@@ -298,7 +306,7 @@ async function deleteCurrentFlag(): Promise<void> {
 }
 
 async function toggleFlag(flag: FeatureFlagItem, value: boolean): Promise<void> {
-  if (isProcessing(flag.code)) {
+  if (!props.canWrite || isProcessing(flag.code)) {
     return
   }
 
@@ -320,6 +328,10 @@ async function toggleFlag(flag: FeatureFlagItem, value: boolean): Promise<void> 
 }
 
 function updateFormField(field: FeatureFlagEditableField, value: string | boolean): void {
+  if (!props.canWrite) {
+    return
+  }
+
   switch (field) {
     case 'enabled':
       form.enabled = Boolean(value)
@@ -486,6 +498,10 @@ function isFlagMatchedBySearch(flag: FeatureFlagItem, query: string): boolean {
 }
 
 function addStrategy(): void {
+  if (!props.canWrite) {
+    return
+  }
+
   const type = strategyTypes.value.find(isStrategyTypeAvailable)?.code ?? ''
   if (!type) {
     return
@@ -495,10 +511,18 @@ function addStrategy(): void {
 }
 
 function removeStrategy(index: number): void {
+  if (!props.canWrite) {
+    return
+  }
+
   form.strategies = form.strategies.filter((_, itemIndex) => itemIndex !== index)
 }
 
 function changeStrategyType(strategy: FeatureFlagStrategyFormItem, type: string): void {
+  if (!props.canWrite) {
+    return
+  }
+
   const strategyType = getStrategyType(type)
   if (!isStrategyTypeAvailable(strategyType)) {
     return
@@ -581,6 +605,10 @@ function handleStrategyFieldChange(
   strategy: FeatureFlagStrategyFormItem,
   field: StrategyField,
 ): void {
+  if (!props.canWrite) {
+    return
+  }
+
   strategy.config[field.code] = value
 }
 
@@ -608,6 +636,7 @@ function createEmptyUser(): FeatureFlagUser {
 <template>
   <section class="ff-app">
     <FeatureFlagsHero
+      :can-write="canWrite"
       :total-flags="totalFlags"
       @create="openCreateModal"
       @manage-tags="openTagsPage"
@@ -617,6 +646,7 @@ function createEmptyUser(): FeatureFlagUser {
 
     <FeatureFlagsPanel
       :active-filter="activeFilter"
+      :can-write="canWrite"
       :current-page="currentPage"
       :display-mode="displayMode"
       :display-options="displayOptions"
@@ -643,6 +673,7 @@ function createEmptyUser(): FeatureFlagUser {
 
     <FeatureFlagModal
       :detail-meta="detailMeta"
+      :can-write="canWrite"
       :editing-code="editingCode"
       :field-errors="fieldErrors"
       :form="form"

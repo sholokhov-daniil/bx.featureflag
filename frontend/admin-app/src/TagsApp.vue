@@ -20,6 +20,7 @@ interface TagItem {
 
 interface BootstrapConfig {
   actions: Record<string, string>
+  canWrite?: boolean
   messages: Record<string, string>
   urls?: Record<string, string>
 }
@@ -52,6 +53,7 @@ interface UiErrorItem {
 }
 
 const props = defineProps<{
+  canWrite: boolean
   embedded?: boolean
 }>()
 
@@ -143,6 +145,10 @@ async function loadTags(): Promise<void> {
 }
 
 function openCreateModal(): void {
+  if (!props.canWrite) {
+    return
+  }
+
   modalMode.value = 'create'
   editingId.value = 0
   resetForm()
@@ -174,7 +180,7 @@ function dismissModal(): void {
 }
 
 async function submitForm(): Promise<void> {
-  if (isSaving.value) {
+  if (!props.canWrite || isSaving.value) {
     return
   }
 
@@ -213,7 +219,7 @@ async function submitForm(): Promise<void> {
 }
 
 async function deleteCurrentTag(): Promise<void> {
-  if (!isEditMode.value || isDeleting.value || !confirm(messages.deleteConfirm)) {
+  if (!props.canWrite || !isEditMode.value || isDeleting.value || !confirm(messages.deleteConfirm)) {
     return
   }
 
@@ -518,7 +524,7 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
             <button type="button" class="ff-button ff-button--ghost" :disabled="!canGoToFlags" @click="goToFlags">
               {{ messages.goToFlags }}
             </button>
-            <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
+            <button v-if="canWrite" type="button" class="ff-button ff-button--primary" @click="openCreateModal">
               {{ messages.add }}
             </button>
           </div>
@@ -542,7 +548,7 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
       <div v-else-if="listError" class="ff-state ff-state--error">{{ listError }}</div>
       <div v-else-if="tags.length === 0" class="ff-empty">
         <div class="ff-empty__title">{{ messages.empty }}</div>
-        <button type="button" class="ff-button ff-button--primary" @click="openCreateModal">
+        <button v-if="canWrite" type="button" class="ff-button ff-button--primary" @click="openCreateModal">
           {{ messages.add }}
         </button>
       </div>
@@ -594,7 +600,7 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
               {{ formNotice.text }}
             </div>
 
-            <label class="ff-field">
+            <label v-if="canWrite" class="ff-field">
               <span class="ff-field__label">{{ messages.name }}</span>
               <input
                 v-model="form.name"
@@ -607,8 +613,12 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
                 <div v-for="(error, index) in fieldErrors.name" :key="`name-${index}-${error}`">{{ error }}</div>
               </div>
             </label>
+            <div v-else class="ff-field">
+              <span class="ff-field__label">{{ messages.name }}</span>
+              <span class="ff-field__value">{{ form.name || '—' }}</span>
+            </div>
 
-            <div class="ff-actions">
+            <div v-if="canWrite" class="ff-actions">
               <div class="ff-actions__group">
                 <button
                   v-if="isEditMode"
@@ -626,6 +636,14 @@ function uniqueErrorItems(items: UiErrorItem[]): UiErrorItem[] {
                 </button>
                 <button type="submit" class="ff-button ff-button--primary" :disabled="isSaving || isDeleting">
                   {{ messages.save }}
+                </button>
+              </div>
+            </div>
+            <div v-else class="ff-actions">
+              <div></div>
+              <div class="ff-actions__group">
+                <button type="button" class="ff-button ff-button--ghost" @click="dismissModal">
+                  {{ messages.closeLabel }}
                 </button>
               </div>
             </div>
