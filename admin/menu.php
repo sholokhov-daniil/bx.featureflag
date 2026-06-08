@@ -8,15 +8,24 @@ Loc::loadMessages(__FILE__);
 if (!ServiceProvider::getModulePermission()->canRead()) {
     return false;
 }
-
+?>
+<style>
+    .sholokhov-featureflag-menu-icon,
+    .sholokhov-featureflag-page-icon
+    {
+        position: relative;
+        background: url('/bitrix/images/sholokhov.featureflag/feature-flag.png') center center no-repeat !important;
+    }
+</style>
+<?php
 return [
     'parent_menu' => 'global_menu_services',
     'section' => 'sholokhov_featureflag',
     'sort' => 1200,
     'text' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MENU_TITLE'),
     'title' => Loc::getMessage('SHOLOKHOV_FEATUREFLAG_MENU_TITLE'),
-    'icon' => 'sys_menu_icon',
-    'page_icon' => 'sys_menu_icon',
+    'icon' => 'sholokhov-featureflag-menu-icon',
+    'page_icon' => 'sholokhov-featureflag-page-icon',
     'items_id' => 'menu_sholokhov_featureflag',
     'items' => [
         [
