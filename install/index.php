@@ -94,6 +94,13 @@ class sholokhov_featureflag extends CModule
     public function InstallFiles(): void
     {
         CopyDirFiles(
+            $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/images/sholokhov.featureflag',
+            $_SERVER['DOCUMENT_ROOT'] . '/bitrix/images/sholokhov.featureflag',
+            true,
+            true
+        );
+
+        CopyDirFiles(
             $_SERVER['DOCUMENT_ROOT'] . '/local/modules/' . $this->MODULE_ID . '/install/admin',
             $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin',
             true,
