@@ -2,7 +2,7 @@
 import '../assets/styles/adminFooter.css'
 
 const authorEmail = 'sholokhovdaniil@yandex.ru'
-const githubUrl = 'https://github.com/sholokhov-daniil'
+const githubUrl = 'https://github.com/sholokhov-daniil/bx.featureflag'
 const issuesUrl = 'https://github.com/sholokhov-daniil/bx.featureflag/issues'
 const docsUrl = 'https://github.com/sholokhov-daniil/bx.featureflag/wiki'
 </script>
