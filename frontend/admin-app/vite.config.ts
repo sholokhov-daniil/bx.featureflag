@@ -8,7 +8,7 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
   build: {
-    outDir: fileURLToPath(new URL('../../install/js/sholokhov/featureflag-admin/dist', import.meta.url)),
+    outDir: fileURLToPath(new URL('../../install/js/sholokhov/featureflag/admin/dist', import.meta.url)),
     emptyOutDir: true,
     cssCodeSplit: false,
     lib: {
