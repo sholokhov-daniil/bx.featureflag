@@ -220,3 +220,26 @@ if (Feature::all([
 ])) {}
 ```
 
+## Пример использование в js
+
+```js
+// Если модуль sholokhov.featureflag уже инициализирован, то js расширение уже подключено
+await BX.loadExt('sholokhov.featureflag.api');
+
+// Фича активна
+await BX.Sholokhov.FeatureFlag.Feature.isEnabled('crm.application.v2'); // bool
+
+// Фича не активна
+await BX.Sholokhov.FeatureFlag.Feature.isDisabled('catalog.fast-filter'); // bool
+
+// Вызов метода в зависимости от статуса фичи
+BX.Sholokhov.FeatureFlag.Feature.when(
+    'checkout.v2',
+    function() {
+        // enabled
+    },
+    function() {
+        // disabled
+    }
+); // void
+```
