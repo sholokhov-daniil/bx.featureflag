@@ -40,7 +40,7 @@ if (!ServiceProvider::getModulePermission()->canRead()) {
     return;
 }
 
-Extension::load('sholokhov.featureflag-admin');
+Extension::load('sholokhov.featureflag.admin');
 
 $viewOptionsResult = ServiceProvider::getAdminFeatureFlagService()->getViewOptions();
 

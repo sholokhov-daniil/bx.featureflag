@@ -7,14 +7,12 @@ export class Provider {
         this.#options = options;
     }
 
-    async send(action: string, data: object, method: string = 'GET'): Promise<any> {
-        console.log(data);
-
+    async send(action: string, data: object, method: string = 'POST'): Promise<any> {
         return await BX.ajax.runAction(
             this.#options.controller + `.${action}`,
             {
                 method,
-                json: data
+                data: data
             }
         )
     }
