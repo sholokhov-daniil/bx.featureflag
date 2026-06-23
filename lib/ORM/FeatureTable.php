@@ -7,6 +7,7 @@ use Bitrix\Main\ORM\EventResult;
 use Bitrix\Main\ORM\Fields;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\ORM\Data\DataManager;
+use Sholokhov\Featureflag\Normalizer\StrategyDecoder;
 
 /**
  * ORM таблица фича-флагов
@@ -88,7 +89,7 @@ class FeatureTable extends DataManager
                     static fn($value) => json_encode($value)
                 )
                 ->addFetchDataModifier(
-                    static fn($value) => json_decode($value, true, 512, JSON_THROW_ON_ERROR)
+                    static fn($value) =>  new StrategyDecoder()->decode($value)
                 ),
 
             (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
