@@ -2,11 +2,16 @@
 
 namespace Sholokhov\Featureflag\Provider\EntitySelector;
 
+use Sholokhov\Featureflag\ServiceProvider;
+
 use Bitrix\Main\GroupTable;
+use Bitrix\Main\ObjectNotFoundException;
 use Bitrix\UI\EntitySelector\BaseProvider;
 use Bitrix\UI\EntitySelector\Dialog;
 use Bitrix\UI\EntitySelector\Item;
 use Bitrix\UI\EntitySelector\SearchQuery;
+
+use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * Простой provider групп пользователей без интеграций Bitrix24.
@@ -30,12 +35,12 @@ class UserGroupProvider extends BaseProvider
      * Проверяет, можно ли использовать provider.
      *
      * @return bool
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
      */
     public function isAvailable(): bool
     {
-        return isset($GLOBALS['USER'])
-            && $GLOBALS['USER'] instanceof \CUser
-            && $GLOBALS['USER']->isAuthorized();
+        return ServiceProvider::getModulePermission()->canRead();
     }
 
     /**

@@ -11,9 +11,9 @@ final class EnabledValueNormalizer
      * Приводит входное значение к bool.
      *
      * @param mixed $value
-     * @return bool|null
+     * @return bool
      */
-    public static function normalize(mixed $value): ?bool
+    public static function normalize(mixed $value): bool
     {
         if (is_bool($value)) {
             return $value;
@@ -50,6 +50,6 @@ final class EnabledValueNormalizer
             }
         }
 
-        return null;
+        return false;
     }
 }

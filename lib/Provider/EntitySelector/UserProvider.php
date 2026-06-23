@@ -2,11 +2,16 @@
 
 namespace Sholokhov\Featureflag\Provider\EntitySelector;
 
+use Sholokhov\Featureflag\ServiceProvider;
+
+use Bitrix\Main\ObjectNotFoundException;
 use Bitrix\Main\UserTable;
 use Bitrix\UI\EntitySelector\BaseProvider;
 use Bitrix\UI\EntitySelector\Dialog;
 use Bitrix\UI\EntitySelector\Item;
 use Bitrix\UI\EntitySelector\SearchQuery;
+
+use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * Простой provider пользователей без интеграций Bitrix24.
@@ -30,13 +35,12 @@ class UserProvider extends BaseProvider
      * Проверяет, можно ли использовать provider.
      *
      * @return bool
+     * @throws ObjectNotFoundException
+     * @throws NotFoundExceptionInterface
      */
     public function isAvailable(): bool
     {
-        // TODO: Добавить проверку, чтобы у пользователя был доступ к модулю
-        return isset($GLOBALS['USER'])
-            && $GLOBALS['USER'] instanceof \CUser
-            && $GLOBALS['USER']->isAuthorized();
+        return ServiceProvider::getModulePermission()->canRead();
     }
 
     /**

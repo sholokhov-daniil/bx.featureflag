@@ -90,7 +90,7 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return (new AddResult)->addErrors($validate->getErrors());
+                return new AddResult()->addErrors($validate->getErrors());
             }
 
             return FeatureTable::add([
@@ -99,17 +99,18 @@ class FeatureRepository implements FeatureRepositoryInterface
                 FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
                 FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
                 FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
-                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt, 'd.m.Y') : null,
+                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt,
+                    'd.m.Y') : null,
                 FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
 
             ]);
         } catch (DuplicateEntryException) {
-            return (new AddResult())
+            return (new AddResult)
                 ->addError(new Error('Флаг с таким кодом уже существует', 'DUPLICATE_CODE', [
                     'field' => 'code',
                 ]));
         } catch (Throwable $exception) {
-            return (new AddResult())
+            return new AddResult()
                 ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
         }
     }
@@ -118,6 +119,7 @@ class FeatureRepository implements FeatureRepositoryInterface
      * Обновление существующего флага
      *
      * @param FeatureFlagPayload $payload
+     *
      * @return UpdateResult
      */
     public function update(FeatureFlagPayload $payload): UpdateResult
@@ -131,7 +133,7 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return (new UpdateResult)->addErrors($validate->getErrors());
+                return new UpdateResult()->addErrors($validate->getErrors());
             }
 
             return FeatureTable::update($flagInfo->code, [
@@ -185,6 +187,8 @@ class FeatureRepository implements FeatureRepositoryInterface
                 $flag = $factory->createFromEntity($entity);
                 $this->cache[$flag->getCode()] = $flag;
             }
+
+            $this->loaded = true;
         } catch (Throwable $exception) {
             AddMessage2Log('Ошибка загрузки флагов: ' . $exception->getMessage());
         }
@@ -200,12 +204,11 @@ class FeatureRepository implements FeatureRepositoryInterface
         EventManager::getInstance()->addEventHandler(
             '',
             '\Sholokhov\Featureflag\ORM\Feature::OnAfterDelete',
-            function(Event $event) {
+            function (Event $event) {
                 /** @var EntityObject $entity */
                 $entity = $event->getParameter('object');
                 $this->cache[$entity->get(FeatureTable::FIELD_CODE)] = $entity;
             }
-
         );
     }
 }

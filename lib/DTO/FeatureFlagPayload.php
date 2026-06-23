@@ -32,7 +32,6 @@ class FeatureFlagPayload
         #[NotEmpty(errorMessage: 'Не заполнено название флага')]
         #[Length(max: 255, errorMessage: 'Название флага не должно быть длиннее 255 символов')]
         public string $name,
-        #[InArray([true, false], strict: true, errorMessage: 'Неправильное значение поля активности')]
         public bool $enabled,
         #[Length(max: 5000, errorMessage: 'Описание флага не должно быть длиннее 5000 символов')]
         public string $description = '',
