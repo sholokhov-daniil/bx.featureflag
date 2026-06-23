@@ -122,7 +122,7 @@ class sholokhov_featureflag extends CModule
             $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin'
         );
 
-        DeleteDirFilesEx('/local/js/sholokhov/featureflag-admin');
+        DeleteDirFilesEx('/local/js/sholokhov/featureflag');
     }
 
     private function checkPhpVersion(): void
