@@ -1,245 +1,62 @@
-# Feature Flags (`sholokhov.featureflag`)
+# Feature Flag для разработчиков 1С-Битрикс и Bitrix24
 
-Модуль для управления feature flags в 1C-Bitrix.
-
-Модуль предназначен для:
-- безопасного rollout новой функциональности
-- ограничения доступа к новым возможностям
-- A/B тестирования
-- постепенного внедрения изменений
-- runtime-управления поведением системы
-- контроля технического долга feature flags
+Модуль позволяет безопасно включать и отключать новую функциональность без деплоя кода, ограничивать доступ к фичам по условиям и контролировать жизненный цикл временных feature flags.
 
 ---
 
-# Возможности модуля
+## Зачем нужен
 
-- хранение feature flags в ORM-таблице
-- управление флагами через административный интерфейс
-- runtime-проверка доступности флагов
-- пользовательские runtime-правила
-- пользовательские UI-стратегии
-- планирование удаления feature flags
-- подсветка просроченных feature flags
-- подсветка feature flags, которые должны быть удалены сегодня
-- DI-регистрация сервисов через `.settings.php`
-- fallback-safe архитектура
-- интеграция с любым Bitrix-проектом
+В Bitrix-проектах часто нужно выкатывать новую функциональность постепенно:
 
----
+- включить новую страницу только для администраторов;
+- открыть функционал только для конкретных пользователей;
+- протестировать новую версию компонента на одном сайте;
+- включить фичу только для определённых IP;
+- быстро отключить проблемный функционал без отката релиза;
+- не забыть удалить временный feature flag после завершения rollout.
 
-# Архитектура
-
-Модуль разделяет:
-
-- хранение состояния флага
-- UI-стратегии доступа
-- runtime-правила
-- runtime-проверку доступности
-- lifecycle feature flags
-
-Feature flag считается активным только если:
-
-1. флаг включён глобально
-2. пользователь прошёл UI-стратегии
-3. пользователь прошёл runtime-правила
-
-Это позволяет:
-- безопасно выкатывать функционал
-- ограничивать аудиторию
-- тестировать новые возможности
-- постепенно расширять rollout
-- контролировать устаревшие feature flags
+Модуль решает эту задачу через административный интерфейс и простой runtime API.
 
 ---
 
-# Планирование удаления feature flags
+## Возможности
 
-Модуль поддерживает поле:
-
-```text
-Плановая дата удаления
-```
-
-Данное поле предназначено для:
-
-- контроля технического долга
-- отслеживания устаревших feature flags
-- планирования cleanup после rollout
-- предотвращения накопления «вечных» feature flags
-
-## Принцип работы
-
-Feature flag может содержать дату:
-
-```text
-REMOVE_PLANNED_AT
-```
-
-После наступления даты:
-
-- feature flag НЕ удаляется автоматически
-- функциональность продолжает работать
-- флаг помечается как требующий удаления
-
-Это позволяет безопасно контролировать lifecycle feature flags без риска неожиданного отключения функциональности.
+- Управление feature flags через административный интерфейс Bitrix.
+- Runtime-проверка активности фичи из PHP.
+- Runtime-проверка активности фичи из JavaScript.
+- Глобальное включение / отключение фичи.
+- Стратегии доступа к фичам.
+- Runtime-правила.
+- Хранение флагов в ORM-таблице.
+- Поддержка тегов для группировки фич.
+- Плановая дата удаления feature flag.
+- Подсветка просроченных feature flags.
+- Подсветка флагов, которые должны быть удалены сегодня.
+- Fallback-safe поведение: если флаг не найден или произошла ошибка, фича считается выключенной.
 
 ---
 
-## Подсветка feature flags
+## Встроенные стратегии
 
-Административный интерфейс автоматически подсвечивает:
+Модуль поддерживает стратегии ограничения доступа:
 
-| Состояние | Описание |
-|---|---|
-| Жёлтый | Feature flag должен быть удалён сегодня |
-| Красный | Плановая дата удаления уже просрочена |
+- по пользователям;
+- по группам пользователей;
+- по IP-адресам;
+- по диапазону IP;
+- по SITE_ID.
 
-Это позволяет быстро находить feature flags, требующие cleanup.
+Стратегии можно использовать для постепенного rollout новой функциональности.
 
----
+Примеры сценариев:
 
-# Схема вычисления feature flag
-
-```text
-Feature::isEnabled()
-        │
-        ▼
-Флаг существует?
-        │
-        ▼
-ENABLED = true ?
-        │
-        ▼
-Есть UI-стратегии?
-        │
-   ┌────┴────┐
-   ▼         ▼
-нет       хотя бы одна true
-   │         │
-   └────┬────┘
-        ▼
-Все runtime-правила true?
-        │
-        ▼
-      true
-```
-
-# Системные требования
-
-- PHP 8.4+
-- установленный 1C-Bitrix
-- поддержка локальных модулей
+- включить новую карточку CRM только для группы тестировщиков;
+- включить новую страницу только на сайте `s1`;
+- открыть функционал только из корпоративной сети;
+- протестировать фичу только на одном пользователе.
 
 ---
 
-# Установка
-
-## 1. Установка модуля
-
-Разместите модуль:
-
-```text
-/local/modules/sholokhov.featureflag
-```
-
----
-
-## 2. Установка через Bitrix
-
-Откройте:
-
-```text
-Marketplace -> Установленные решения
-```
-
-Установите модуль:
-
-```text
-sholokhov.featureflag
-```
-
----
-
-# Быстрый старт
-
-## Подключение модуля
-
-```php
-use Bitrix\Main\Loader;
-
-Loader::includeModule('sholokhov.featureflag');
-```
-
----
-
-## Регистрация feature flag
-
-```php
-use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
-use Sholokhov\Featureflag\Feature;
-
-Feature::register(new FeatureFlagPayload(
-    code: 'crm.application.v2',
-    name: 'Новая карточка заявки',
-    description: 'Переключатель новой версии карточки заявки',
-    enabled: true,
-));
-```
-
----
-
-## Примеры использования
-
-```php
-use Sholokhov\Featureflag\Feature;
-
-// Фича активна
-if (Feature::isEnabled('crm.application.v2')) {}
-
-// Фича не активна
-if (Feature::isDisabled('catalog.fast-filter')) {}
-
-// Вызов метода в зависимости от статуса фичи
-Feature::when(
-    'checkout.v2',
-    enabled: fn() => $this->renderNewCheckout(),
-    disabled: fn() => $this->renderOldCheckout(),
-);
-
-// Хотя бы одна фича активна
-if (Feature::any([
-    'search.v2',
-    'search.ab-test',
-])) {}
-
-// Все фичи активны
-if (Feature::all([
-    'checkout.v2',
-    'payment.new-form',
-])) {}
-```
-
-## Пример использование в js
-
-```js
-// Если модуль sholokhov.featureflag уже инициализирован, то js расширение уже подключено
-await BX.loadExt('sholokhov.featureflag.api');
-
-// Фича активна
-await BX.Sholokhov.FeatureFlag.Feature.isEnabled('crm.application.v2'); // bool
-
-// Фича не активна
-await BX.Sholokhov.FeatureFlag.Feature.isDisabled('catalog.fast-filter'); // bool
-
-// Вызов метода в зависимости от статуса фичи
-BX.Sholokhov.FeatureFlag.Feature.when(
-    'checkout.v2',
-    function() {
-        // enabled
-    },
-    function() {
-        // disabled
-    }
-); // void
-```
+[![Documentation](https://img.shields.io/badge/documentation-50514F?style=for-the-badge&logo=readthedocs&logoColor=white)](https://github.com/sholokhov-daniil/bx.featureflag/wiki)
+[![Telegram](https://img.shields.io/badge/sholokhov22-50514F?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/sholokhov22)
+[![Email](https://img.shields.io/badge/sholokhovdaniil%40yandex.ru-50514F?style=for-the-badge&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAYFBMVEX4YEr4X0n4XEX4VTz4Uzn4WkH5hnj8v7j91tH94N34ZVD+5uP////+8vD/9/b9zsj7uLD+7+393tr//v75cl/4bFn4UDX7ppv5gHH8wrv3TTH8xsD3Rib92dX4WkP4Z1PMr9nAAAAAnklEQVR4AcTPNQLDQBAEwUNhW8z4/1caM2kv9qS1qP4bbax171jJfBQn6TuJuZnJcn55eH0xrR5QlFUM9Q19BY12NmsFdDl0RulewqEFr0P4AB1Cm8BoA2giaCcro3IzMC4yarsCjYxKbzusmYxHBIULjPUFRF5Gt8LqtIhHBA+jdc8ddVbAdKgPPo4Lqqw/s+NTdZ6n8InWr8HpgQQAHnwKoF6Sk9YAAAAASUVORK5CYII=)](mailto:sholokhovdaniil@yandex.ru) 
