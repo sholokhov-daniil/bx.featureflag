@@ -1,0 +1,28 @@
+{
+  "name": "sholokhov/bx-featureflag",
+  "description": "Feature flags module for 1C-Bitrix / Bitrix24 on-premise with admin UI, runtime API and access strategies.",
+  "type": "bitrix-module",
+  "license": "MIT",
+  "keywords": [
+    "bitrix",
+    "bitrix24",
+    "1c-bitrix",
+    "module",
+    "1c-bitrix-module",
+    "bitrix-module",
+    "feature-flag",
+    "feature-flags",
+    "feature-toggle",
+    "php"
+  ],
+  "authors": [
+    {
+      "name": "Sholokhov Daniil",
+      "email": "sholokhovdaniil@yandex.ru",
+      "role": "Author"
+    }
+  ],
+  "require": {
+    "php": ">=8.4"
+  }
+}
