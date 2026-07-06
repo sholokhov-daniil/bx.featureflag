@@ -17,12 +17,15 @@ class PublicFeatureFlag extends Controller
      */
     public function configureActions(): array
     {
+        $publicConfig = [
+            '-prefilters' => [
+                Authentication::class,
+            ],
+        ];
+
         return [
-            'get' => [
-                '-prefilters' => [
-                    Authentication::class
-                ]
-            ]
+            'get' => $publicConfig,
+            'getBulk' => $publicConfig,
         ];
     }
 
@@ -43,20 +46,70 @@ class PublicFeatureFlag extends Controller
      * Возвращает информацию по кешу
      *
      * @param FeatureInterface|null $feature
-     * @return array
+     * @return array{enabled: bool}|null
      */
-    public function getAction(?FeatureInterface $feature = null): array
+    public function getAction(?FeatureInterface $feature = null): ?array
     {
-        if ($feature) {
-            return [
-                'code' => $feature->getCode(),
-                'enabled' => $feature->isEnabled(),
-            ];
+        return $this->presentPublicFeature($feature);
+    }
+
+    /**
+     * Возвращает публичную информацию по списку фич без раскрытия скрытых кодов.
+     *
+     * @param array<int, mixed> $codes
+     * @return array<string, array{enabled: bool}|null>
+     */
+    public function getBulkAction(array $codes = []): array
+    {
+        $result = [];
+
+        foreach ($this->normalizeCodes($codes) as $code) {
+            $result[$code] = $this->presentPublicFeature(Feature::getByCode($code));
+        }
+
+        return $result;
+    }
+
+    /**
+     * Возвращает публичный payload фичи или null, если фича скрыта от JS.
+     *
+     * @param FeatureInterface|null $feature
+     * @return array{enabled: bool}|null
+     */
+    private function presentPublicFeature(?FeatureInterface $feature): ?array
+    {
+        if ($feature === null || !$feature->isAvailableInJs()) {
+            return null;
         }
 
         return [
-            'code' => (string)$this->getRequest()->get('code'),
-            'enabled' => false
+            'enabled' => $feature->isEnabled(),
         ];
+    }
+
+    /**
+     * Нормализует список кодов из публичного запроса.
+     *
+     * @param array<int, mixed> $codes
+     * @return array<int, string>
+     */
+    private function normalizeCodes(array $codes): array
+    {
+        $normalizedCodes = [];
+
+        foreach ($codes as $code) {
+            if (!is_string($code)) {
+                continue;
+            }
+
+            $code = trim($code);
+            if ($code === '') {
+                continue;
+            }
+
+            $normalizedCodes[$code] = $code;
+        }
+
+        return array_values($normalizedCodes);
     }
 }

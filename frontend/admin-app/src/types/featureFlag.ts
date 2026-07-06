@@ -14,6 +14,7 @@ export interface FeatureFlagItem {
   name: string
   description: string
   enabled: boolean
+  availableInJs: boolean
   tagId: number | null
   tag: FeatureTagItem | null
   strategies: FeatureFlagStrategyItem[]
@@ -33,6 +34,7 @@ export interface FeatureFlagForm {
   name: string
   description: string
   enabled: boolean
+  availableInJs: boolean
   tagId: string
   removePlannedAt: string
   strategies: FeatureFlagStrategyFormItem[]
@@ -202,11 +204,11 @@ export interface ActionConfig {
 
 export type NoticeType = 'success' | 'error'
 export type ModalMode = 'create' | 'edit'
-export type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'strategies'
+export type FormFieldKey = 'code' | 'name' | 'description' | 'enabled' | 'availableInJs' | 'tagId' | 'strategies'
 export type AdminView = 'flags' | 'tags'
 export type FeatureFlagsDisplayMode = 'cards' | 'table'
 export type FeatureFlagsFilterCode = 'all' | 'enabled' | 'disabled' | 'deleting' | 'expired'
-export type FeatureFlagEditableField = 'code' | 'name' | 'description' | 'enabled' | 'tagId' | 'removePlannedAt'
+export type FeatureFlagEditableField = 'code' | 'name' | 'description' | 'enabled' | 'availableInJs' | 'tagId' | 'removePlannedAt'
 export type RemovalState = 'expired' | 'today' | null
 
 export interface FeatureFlagsDisplayOption {
@@ -235,6 +237,7 @@ export interface FieldErrors {
   name: string[]
   description: string[]
   enabled: string[]
+  availableInJs: string[]
   tagId: string[]
   strategies: string[]
 }

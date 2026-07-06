@@ -69,6 +69,19 @@ final readonly class FeatureFlag implements FeatureInterface
     }
 
     /**
+     * Проверяет, можно ли раскрывать фича-флаг в публичном JS API.
+     *
+     * @return bool true, если фича доступна для JS API
+     *
+     * @throws ArgumentException
+     * @throws SystemException
+     */
+    public function isAvailableInJs(): bool
+    {
+        return (bool)$this->entity->get(FeatureTable::FIELD_AVAILABLE_IN_JS);
+    }
+
+    /**
      * Возвращает символьный код фича-флага
      *
      * @return string

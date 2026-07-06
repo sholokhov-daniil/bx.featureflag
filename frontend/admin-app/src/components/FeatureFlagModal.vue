@@ -154,6 +154,28 @@ function submit(): void {
             </div>
 
             <div class="ff-field">
+              <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_AVAILABLE_IN_JS') }}</span>
+              <div class="ff-field__value">
+                <ToggleSwitch
+                  v-if="canWrite"
+                  :checked="form.availableInJs"
+                  :disabled="isSaving || isDeleting"
+                  :label-on="Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_ON')"
+                  :label-off="Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_OFF')"
+                  @change="emit('updateFormField', 'availableInJs', $event)"
+                />
+                <span v-else class="ff-field__value">
+                  {{ form.availableInJs ? Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_ON') : Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_OFF') }}
+                </span>
+              </div>
+              <div v-if="fieldErrors.availableInJs.length" class="ff-field-errors">
+                <div v-for="(error, index) in fieldErrors.availableInJs" :key="`availableInJs-${index}-${error}`">
+                  {{ error }}
+                </div>
+              </div>
+            </div>
+
+            <div class="ff-field">
               <span class="ff-field__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CODE') }}</span>
               <input
                 v-if="canWrite && !isEditMode"

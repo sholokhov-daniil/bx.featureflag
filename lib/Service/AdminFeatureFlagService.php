@@ -63,6 +63,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         ?AdminFeatureFlagPresenter $presenter = null,
         ?AdminFeatureFlagErrorMapper $errorMapper = null,
     ) {
+        FeatureFlagSchemaManager::ensureActualSchema();
         $this->presenter = $presenter ?? new AdminFeatureFlagPresenter();
         $this->errorMapper = $errorMapper ?? new AdminFeatureFlagErrorMapper();
     }

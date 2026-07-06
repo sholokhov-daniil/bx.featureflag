@@ -17,6 +17,13 @@ interface FeatureInterface
     public function isEnabled(): bool;
 
     /**
+     * Доступность флага в публичном JS API.
+     *
+     * @return bool
+     */
+    public function isAvailableInJs(): bool;
+
+    /**
      * Название флага
      *
      * @return string

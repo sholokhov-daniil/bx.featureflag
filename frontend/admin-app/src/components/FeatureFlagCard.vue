@@ -77,6 +77,11 @@ function isProcessing(): boolean {
         </div>
 
         <div class="ff-flag-card__detail">
+          <span class="ff-flag-card__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_AVAILABLE_IN_JS') }}</span>
+          <span>{{ flag.availableInJs ? Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_ON') : Loc('SHOLOKHOV_FEATUREFLAG_JS_AVAILABLE_OFF') }}</span>
+        </div>
+
+        <div class="ff-flag-card__detail">
           <span class="ff-flag-card__label">{{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_TITLE') }}</span>
           <div v-if="strategyLabels.length > 0" class="ff-card-strategy-tags">
             <span

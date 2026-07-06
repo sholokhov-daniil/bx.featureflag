@@ -2,6 +2,7 @@
 
 use Sholokhov\Featureflag\ORM\FeatureTable;
 use Sholokhov\Featureflag\ORM\FeatureTagTable;
+use Sholokhov\Featureflag\Service\FeatureFlagSchemaManager;
 
 use Bitrix\Main\EventManager;
 use Bitrix\Main\Localization\Loc;
@@ -74,6 +75,7 @@ class sholokhov_featureflag extends CModule
     {
         FeatureTagTable::getEntity()->createDbTable();
         FeatureTable::getEntity()->createDbTable();
+        FeatureFlagSchemaManager::ensureActualSchema();
     }
 
     public function UnInstallDB(): void

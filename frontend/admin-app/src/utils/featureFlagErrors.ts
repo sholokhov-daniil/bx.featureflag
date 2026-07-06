@@ -7,6 +7,7 @@ export function createFieldErrors(): FieldErrors {
     name: [],
     description: [],
     enabled: [],
+    availableInJs: [],
     tagId: [],
     strategies: [],
   }
@@ -38,6 +39,7 @@ export function extractFeatureFlagFormErrorState(error: unknown, fallback: strin
   state.fields.name = Array.from(new Set(state.fields.name))
   state.fields.description = Array.from(new Set(state.fields.description))
   state.fields.enabled = Array.from(new Set(state.fields.enabled))
+  state.fields.availableInJs = Array.from(new Set(state.fields.availableInJs))
   state.fields.tagId = Array.from(new Set(state.fields.tagId))
   state.fields.strategies = Array.from(new Set(state.fields.strategies))
 
@@ -51,6 +53,7 @@ function hasFormErrors(state: FormErrorState): boolean {
     || state.fields.name.length > 0
     || state.fields.description.length > 0
     || state.fields.enabled.length > 0
+    || state.fields.availableInJs.length > 0
     || state.fields.tagId.length > 0
     || state.fields.strategies.length > 0
   )
@@ -72,6 +75,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   if (code.includes('DESCRIPTION')) {
     return 'description'
   }
+  if (code.includes('AVAILABLE_IN_JS') || code.includes('AVAILABLEINJS') || code.includes('JS')) {
+    return 'availableInJs'
+  }
   if (code.includes('ENABLED')) {
     return 'enabled'
   }
@@ -91,6 +97,9 @@ function detectFieldFromErrorItem(item: UiErrorItem): FormFieldKey | null {
   }
   if (normalizedMessage.includes('описан') || normalizedMessage.includes('description')) {
     return 'description'
+  }
+  if (normalizedMessage.includes('availableinjs') || normalizedMessage.includes('available_in_js') || normalizedMessage.includes('js')) {
+    return 'availableInJs'
   }
   if (normalizedMessage.includes('активн') || normalizedMessage.includes('enabled') || normalizedMessage.includes('статус')) {
     return 'enabled'
@@ -123,6 +132,10 @@ function extractErrorField(customData: unknown): FormFieldKey | null {
     ? (data.customData as Record<string, unknown>).field
     : null)
 
+  if (candidate === 'availableInJs' || candidate === 'available_in_js' || candidate === 'AVAILABLE_IN_JS' || candidate === 'js') {
+    return 'availableInJs'
+  }
+
   if (candidate === 'tag_id') {
     return 'tagId'
   }
@@ -131,7 +144,7 @@ function extractErrorField(customData: unknown): FormFieldKey | null {
     return 'strategies'
   }
 
-  if (candidate === 'code' || candidate === 'name' || candidate === 'description' || candidate === 'enabled' || candidate === 'tagId') {
+  if (candidate === 'code' || candidate === 'name' || candidate === 'description' || candidate === 'enabled' || candidate === 'availableInJs' || candidate === 'tagId') {
     return candidate
   }
 

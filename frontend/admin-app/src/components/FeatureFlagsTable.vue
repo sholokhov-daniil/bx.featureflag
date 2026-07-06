@@ -42,6 +42,7 @@ function isProcessing(code: string): boolean {
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_TAGS_NAME') }}</th>
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_STRATEGIES_TITLE') }}</th>
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_ENABLED') }}</th>
+          <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_AVAILABLE_IN_JS') }}</th>
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_BY') }}</th>
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_CREATED_AT') }}</th>
           <th>{{ Loc('SHOLOKHOV_FEATUREFLAG_FIELD_UPDATED_AT') }}</th>
@@ -104,6 +105,9 @@ function isProcessing(code: string): boolean {
               @change="emit('toggle', flag, $event)"
             />
             <FeatureFlagStatusBadge v-else :enabled="flag.enabled" />
+          </td>
+          <td>
+            {{ flag.availableInJs ? 'Да' : 'Нет' }}
           </td>
           <td>
             <a

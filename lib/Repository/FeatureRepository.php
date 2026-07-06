@@ -8,6 +8,7 @@ use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\ORM\FeatureTable;
+use Sholokhov\Featureflag\Service\FeatureFlagSchemaManager;
 
 use Bitrix\Main\Error;
 use Bitrix\Main\Type\Date;
@@ -48,6 +49,7 @@ class FeatureRepository implements FeatureRepositoryInterface
 
     public function __construct()
     {
+        FeatureFlagSchemaManager::ensureActualSchema();
         $this->registerEvents();
     }
 
@@ -90,7 +92,7 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return new AddResult()->addErrors($validate->getErrors());
+                return (new AddResult())->addErrors($validate->getErrors());
             }
 
             return FeatureTable::add([
@@ -98,6 +100,7 @@ class FeatureRepository implements FeatureRepositoryInterface
                 FeatureTable::FIELD_NAME => $flagInfo->name,
                 FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
                 FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
+                FeatureTable::FIELD_AVAILABLE_IN_JS => $flagInfo->availableInJs,
                 FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
                 FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt,
                     'd.m.Y') : null,
@@ -110,7 +113,7 @@ class FeatureRepository implements FeatureRepositoryInterface
                     'field' => 'code',
                 ]));
         } catch (Throwable $exception) {
-            return new AddResult()
+            return (new AddResult())
                 ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
         }
     }
@@ -133,13 +136,14 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return new UpdateResult()->addErrors($validate->getErrors());
+                return (new UpdateResult())->addErrors($validate->getErrors());
             }
 
             return FeatureTable::update($flagInfo->code, [
                 FeatureTable::FIELD_NAME => $flagInfo->name,
                 FeatureTable::FIELD_DESCRIPTION => $flagInfo->description,
                 FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
+                FeatureTable::FIELD_AVAILABLE_IN_JS => $flagInfo->availableInJs,
                 FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
                 FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt, 'd.m.Y') : null,
                 FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
@@ -175,6 +179,7 @@ class FeatureRepository implements FeatureRepositoryInterface
     private function load(): void
     {
         try {
+            FeatureFlagSchemaManager::ensureActualSchema();
             $this->cache = [];
             $factory = ServiceProvider::getFeatureFactory();
 

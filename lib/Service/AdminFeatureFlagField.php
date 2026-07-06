@@ -16,6 +16,7 @@ final class AdminFeatureFlagField
     public const string NAME = 'name';
     public const string DESCRIPTION = 'description';
     public const string ENABLED = 'enabled';
+    public const string AVAILABLE_IN_JS = 'availableInJs';
     public const string TAG_ID = 'tagId';
     public const string STRATEGIES = 'strategies';
     public const string ID = 'id';

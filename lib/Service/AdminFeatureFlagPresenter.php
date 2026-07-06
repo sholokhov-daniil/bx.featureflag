@@ -29,6 +29,7 @@ use Sholokhov\Featureflag\ServiceProvider;
  *     name: string,
  *     description: string,
  *     enabled: bool,
+ *     availableInJs: bool,
  *     tagId: int|null,
  *     tag: array{id: int|null, name: string},
  *     strategies: array<int, mixed>,
@@ -234,6 +235,7 @@ final class AdminFeatureFlagPresenter
             'name' => (string)($row[FeatureTable::FIELD_NAME] ?? ''),
             'description' => (string)($row[FeatureTable::FIELD_DESCRIPTION] ?? ''),
             'enabled' => $this->normalizeEnabled($row[FeatureTable::FIELD_ENABLED] ?? false),
+            'availableInJs' => $this->normalizeEnabled($row[FeatureTable::FIELD_AVAILABLE_IN_JS] ?? false),
             'tagId' => $tagId > 0 ? $tagId : null,
             'tag' => [
                 'id' => $tagId > 0 ? $tagId : null,

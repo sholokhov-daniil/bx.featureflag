@@ -11,7 +11,10 @@
   border-left: 3px solid #2677ff;
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(15, 35, 64, 0.06);
+  color: #314154;
   display: grid;
+  font-size: 13px;
+  line-height: 1.45;
   min-height: 248px;
   overflow: hidden;
 }
@@ -58,11 +61,11 @@
   appearance: none;
   background: none;
   border: 0;
-  color: #122033;
+  color: #172b4d;
   cursor: pointer;
   display: -webkit-box;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.35;
   margin: 0;
   overflow: hidden;
@@ -77,18 +80,20 @@
 }
 
 .ff-flag-card__code {
-  color: #6d7d93;
+  color: #7a8798;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
-  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .ff-flag-card__description {
-  color: #40516a;
+  color: #4c5f78;
   display: -webkit-box;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   margin: 0;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -109,10 +114,12 @@
 }
 
 .ff-flag-card__label {
-  color: #667893;
-  font-size: 12px;
-  font-weight: 700;
+  color: #7a8798;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.035em;
   line-height: 1.35;
+  text-transform: uppercase;
 }
 
 .ff-flag-card__tag {
@@ -123,9 +130,9 @@
   color: #246053;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   justify-self: start;
-  line-height: 1.3;
+  line-height: 1.35;
   max-width: 100%;
   overflow: hidden;
   padding: 4px 9px;
@@ -148,8 +155,8 @@
   color: #255fc8;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
+  font-weight: 500;
+  line-height: 1.35;
   max-width: 100%;
   overflow: hidden;
   padding: 4px 8px;

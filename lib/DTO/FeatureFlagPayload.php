@@ -19,6 +19,7 @@ class FeatureFlagPayload
      * @param string $code Символьный код фича-флага.
      * @param string $name Название фича-флага.
      * @param bool $enabled Признак активности.
+     * @param bool $availableInJs Признак доступности фичи в публичном JS API.
      * @param string $description Описание фича-флага.
      * @param int|null $tagId Идентификатор тега (опционально).
      * @param string $removePlannedAt Плановая дата удаления флага
@@ -33,6 +34,7 @@ class FeatureFlagPayload
         #[Length(max: 255, errorMessage: 'Название флага не должно быть длиннее 255 символов')]
         public string $name,
         public bool $enabled,
+        public bool $availableInJs = false,
         #[Length(max: 5000, errorMessage: 'Описание флага не должно быть длиннее 5000 символов')]
         public string $description = '',
         #[Min(min: 0, errorMessage: 'Неправильное значение тега')]
@@ -57,6 +59,7 @@ class FeatureFlagPayload
             name: (string)$request->get('name'),
             description: (string)$request->get('description'),
             enabled: EnabledValueNormalizer::normalize($request->get('enabled')),
+            availableInJs: EnabledValueNormalizer::normalize($request->get('availableInJs')),
             tagId: (int)$request->get('tagId'),
             removePlannedAt: trim((string)$request->get('removePlannedAt')),
             strategies: (array)$request->get('strategies'),

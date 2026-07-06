@@ -4,6 +4,9 @@
 
 .ff-table {
   border-collapse: collapse;
+  color: #314154;
+  font-size: 13px;
+  line-height: 1.45;
   min-width: 1120px;
   width: 100%;
 }
@@ -23,8 +26,9 @@
 .ff-table th {
   background: #f9fbfe;
   color: #6a7b91;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   line-height: 1.4;
   text-transform: uppercase;
 }

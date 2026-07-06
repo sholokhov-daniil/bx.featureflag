@@ -91,6 +91,7 @@ const form = reactive<FeatureFlagForm>({
   name: '',
   description: '',
   enabled: false,
+  availableInJs: false,
   tagId: '',
   removePlannedAt: '',
   strategies: [],
@@ -252,6 +253,7 @@ async function submitForm(): Promise<void> {
     name: form.name.trim(),
     description: form.description.trim(),
     enabled: form.enabled,
+    availableInJs: form.availableInJs,
     tagId: form.tagId,
     removePlannedAt: dateToServerFormat(form.removePlannedAt),
     strategies: serializeStrategies(),
@@ -336,6 +338,9 @@ function updateFormField(field: FeatureFlagEditableField, value: string | boolea
     case 'enabled':
       form.enabled = Boolean(value)
       break
+    case 'availableInJs':
+      form.availableInJs = Boolean(value)
+      break
     case 'code':
       form.code = String(value)
       break
@@ -360,6 +365,7 @@ function hydrateForm(flag: FeatureFlagItem): void {
   form.name = flag.name
   form.description = flag.description
   form.enabled = flag.enabled
+  form.availableInJs = flag.availableInJs
   form.removePlannedAt = dateToInputFormat(flag.removePlannedAt)
   form.tagId = flag.tagId ? String(flag.tagId) : ''
   form.strategies = (flag.strategies ?? []).map((strategy) => createStrategyFormItem(strategy.type, strategy.config))
@@ -373,6 +379,7 @@ function resetForm(): void {
   form.name = ''
   form.description = ''
   form.enabled = false
+  form.availableInJs = false
   form.tagId = ''
   form.removePlannedAt = ''
   form.strategies = []
@@ -405,6 +412,7 @@ function applyFieldErrors(errors: FieldErrors): void {
   fieldErrors.name = [...errors.name]
   fieldErrors.description = [...errors.description]
   fieldErrors.enabled = [...errors.enabled]
+  fieldErrors.availableInJs = [...errors.availableInJs]
   fieldErrors.tagId = [...errors.tagId]
   fieldErrors.strategies = [...errors.strategies]
 }

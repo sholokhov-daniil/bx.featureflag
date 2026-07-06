@@ -114,9 +114,11 @@ final class AdminFeatureFlagErrorMapper
             AdminFeatureFlagField::NAME,
             AdminFeatureFlagField::DESCRIPTION,
             AdminFeatureFlagField::ENABLED,
+            AdminFeatureFlagField::AVAILABLE_IN_JS,
             AdminFeatureFlagField::TAG_ID,
             AdminFeatureFlagField::STRATEGIES,
             AdminFeatureFlagField::ID => $field,
+            'available_in_js', 'AVAILABLE_IN_JS', 'js' => AdminFeatureFlagField::AVAILABLE_IN_JS,
             'tag', 'tag_id' => AdminFeatureFlagField::TAG_ID,
             'strategy', 'strategies[]' => AdminFeatureFlagField::STRATEGIES,
             default => null,
@@ -152,6 +154,10 @@ final class AdminFeatureFlagErrorMapper
 
         if (str_contains($normalized, 'описан') || str_contains($normalized, 'description')) {
             return AdminFeatureFlagField::DESCRIPTION;
+        }
+
+        if (str_contains($normalized, 'availableinjs') || str_contains($normalized, 'available_in_js') || str_contains($normalized, 'js')) {
+            return AdminFeatureFlagField::AVAILABLE_IN_JS;
         }
 
         if (str_contains($normalized, 'enabled') || str_contains($normalized, 'статус')) {

@@ -7,7 +7,7 @@ use Bitrix\Main\ORM\EventResult;
 use Bitrix\Main\ORM\Fields;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\ORM\Data\DataManager;
-use Sholokhov\Featureflag\Normalizer\StrategyDecoder;
+use Sholokhov\Featureflag\Decoder\StrategyDecoder;
 
 /**
  * ORM таблица фича-флагов
@@ -31,6 +31,9 @@ class FeatureTable extends DataManager
 
     /** Флаг активности */
     public const string FIELD_ENABLED = 'ENABLED';
+
+    /** Доступность фичи в публичном JS API */
+    public const string FIELD_AVAILABLE_IN_JS = 'AVAILABLE_IN_JS';
 
     /** Название фичи */
     public const string FIELD_NAME = 'NAME';
@@ -73,6 +76,9 @@ class FeatureTable extends DataManager
             (new Fields\BooleanField(self::FIELD_ENABLED))
                 ->configureDefaultValue(false),
 
+            (new Fields\BooleanField(self::FIELD_AVAILABLE_IN_JS))
+                ->configureDefaultValue(false),
+
             (new Fields\StringField(self::FIELD_NAME))
                 ->configureRequired()
                 ->configureSize(255),
@@ -89,7 +95,7 @@ class FeatureTable extends DataManager
                     static fn($value) => json_encode($value)
                 )
                 ->addFetchDataModifier(
-                    static fn($value) =>  new StrategyDecoder()->decode($value)
+                    static fn($value) => (new StrategyDecoder())->decode($value)
                 ),
 
             (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
