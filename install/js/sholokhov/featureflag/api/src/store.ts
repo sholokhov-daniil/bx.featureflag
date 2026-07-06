@@ -24,7 +24,7 @@ export class Store implements StoreInterface {
     /**
      * Активные запросы к серверу
      */
-    #pending: Map<string, Promise<Feature>> = new Map();
+    #pending: Map<string, Promise<Feature | null>> = new Map();
 
     /**
      * @param {StoreOptions} options Параметры хранилища.
@@ -81,9 +81,9 @@ export class Store implements StoreInterface {
      * Сохраняет фича-флаг в кеш.
      *
      * @param {string} code Код фича-флага.
-     * @param {Feature} feature Данные фича-флага.
+     * @param {Feature|null} feature Данные фича-флага.
      */
-    set(code: string, feature: Feature): void {
+    set(code: string, feature: Feature | null): void {
         this.#cache.set(code, {
             feature,
             expiredAt: Date.now() + this.#ttl,
@@ -94,9 +94,9 @@ export class Store implements StoreInterface {
      * Возвращает активный запрос для указанного флага.
      *
      * @param {string} code Код фича-флага.
-     * @returns {Promise<Feature>|null}
+     * @returns {Promise<Feature|null>|null}
      */
-    getPending(code: string): Promise<Feature> | null {
+    getPending(code: string): Promise<Feature | null> | null {
         return this.#pending.get(code) ?? null;
     }
 
@@ -104,9 +104,9 @@ export class Store implements StoreInterface {
      * Регистрирует активный запрос для указанного флага.
      *
      * @param {string} code Код фича-флага.
-     * @param {Promise<Feature>} promise Promise загрузки данных.
+     * @param {Promise<Feature|null>} promise Promise загрузки данных.
      */
-    setPending(code: string, promise: Promise<Feature>): void {
+    setPending(code: string, promise: Promise<Feature | null>): void {
         this.#pending.set(code, promise);
     }
 

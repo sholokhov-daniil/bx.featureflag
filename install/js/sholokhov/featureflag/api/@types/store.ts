@@ -1,7 +1,7 @@
 import { Feature } from './feature.ts';
 
 export type StoreItem = {
-    feature: Feature;
+    feature: Feature | null;
     expiredAt: number;
 }
 
@@ -18,28 +18,35 @@ export interface Store {
     get(code: string): Feature | null;
 
     /**
+     * Проверяет наличие актуальной записи в кеше.
+     *
+     * @param {string} code Код фича-флага.
+     */
+    has(code: string): boolean;
+
+    /**
      * Сохраняет фича-флаг в кеш.
      *
      * @param {string} code Код фича-флага.
-     * @param {Feature} feature Данные фича-флага.
+     * @param {Feature|null} feature Данные фича-флага.
      */
-    set(code: string, feature: Feature): void;
+    set(code: string, feature: Feature | null): void;
 
     /**
      * Возвращает активный запрос для указанного флага.
      *
      * @param {string} code Код фича-флага.
-     * @returns {Promise<Feature>|null}
+     * @returns {Promise<Feature|null>|null}
      */
-    getPending(code: string): Promise<Feature> | null;
+    getPending(code: string): Promise<Feature | null> | null;
 
     /**
      * Регистрирует активный запрос для указанного флага.
      *
      * @param {string} code Код фича-флага.
-     * @param {Promise<Feature>} promise Promise загрузки данных.
+     * @param {Promise<Feature|null>} promise Promise загрузки данных.
      */
-    setPending(code: string, promise: Promise<Feature>): void;
+    setPending(code: string, promise: Promise<Feature | null>): void;
 
     /**
      * Удаляет активный запрос.
