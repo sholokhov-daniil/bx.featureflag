@@ -224,13 +224,13 @@ if (Feature::all([
 
 ```js
 // Если модуль sholokhov.featureflag уже инициализирован, то js расширение уже подключено
-await BX.loadExt('sholokhov.featureflag.api');
+await BX.loadExt('sholokhov.featureflag.feature');
 
 // Фича активна
-await BX.Sholokhov.FeatureFlag.Feature.isEnabled('crm.application.v2'); // bool
+BX.Sholokhov.FeatureFlag.Feature.isEnabled('crm.application.v2'); // boolean
 
 // Фича не активна
-await BX.Sholokhov.FeatureFlag.Feature.isDisabled('catalog.fast-filter'); // bool
+BX.Sholokhov.FeatureFlag.Feature.isDisabled('catalog.fast-filter'); // boolean
 
 // Вызов метода в зависимости от статуса фичи
 BX.Sholokhov.FeatureFlag.Feature.when(
@@ -242,4 +242,10 @@ BX.Sholokhov.FeatureFlag.Feature.when(
         // disabled
     }
 ); // void
+
+// Хотя бы одна фича активна
+BX.Sholokhov.FeatureFlag.Feature.any(["crm.application.v2", "catalog.fast-filter"]) // boolean
+
+// Все фичи активны
+BX.Sholokhov.FeatureFlag.Feature.all(["crm.application.v2", "catalog.fast-filter"]) // boolean
 ```

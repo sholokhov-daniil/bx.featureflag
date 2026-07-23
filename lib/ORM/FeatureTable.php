@@ -7,7 +7,6 @@ use Bitrix\Main\ORM\EventResult;
 use Bitrix\Main\ORM\Fields;
 use Bitrix\Main\Type\DateTime;
 use Bitrix\Main\ORM\Data\DataManager;
-use Sholokhov\Featureflag\Decoder\StrategyDecoder;
 
 /**
  * ORM таблица фича-флагов
@@ -70,48 +69,43 @@ class FeatureTable extends DataManager
     public static function getMap(): array
     {
         return [
-            (new Fields\StringField(self::FIELD_CODE))
+            new Fields\StringField(self::FIELD_CODE)
                 ->configurePrimary(),
 
-            (new Fields\BooleanField(self::FIELD_ENABLED))
+            new Fields\BooleanField(self::FIELD_ENABLED)
                 ->configureDefaultValue(false),
 
-            (new Fields\BooleanField(self::FIELD_AVAILABLE_IN_JS))
+            new Fields\BooleanField(self::FIELD_AVAILABLE_IN_JS)
                 ->configureDefaultValue(false),
 
-            (new Fields\StringField(self::FIELD_NAME))
+            new Fields\StringField(self::FIELD_NAME)
                 ->configureRequired()
                 ->configureSize(255),
 
-            (new Fields\TextField(self::FIELD_DESCRIPTION))
+            new Fields\TextField(self::FIELD_DESCRIPTION)
                 ->configureDefaultValue(''),
 
-            (new Fields\IntegerField(self::FIELD_TAG_ID))
+            new Fields\IntegerField(self::FIELD_TAG_ID)
                 ->configureNullable(),
 
-            (new Fields\TextField(self::FIELD_STRATEGIES))
+            new Fields\ArrayField(self::FIELD_STRATEGIES)
                 ->configureDefaultValue('')
-                ->addSaveDataModifier(
-                    static fn($value) => json_encode($value)
-                )
-                ->addFetchDataModifier(
-                    static fn($value) => (new StrategyDecoder())->decode($value)
-                ),
+                ->configureSerializationJson(),
 
-            (new Fields\DatetimeField(self::FIELD_DATE_CREATE))
+            new Fields\DatetimeField(self::FIELD_DATE_CREATE)
                 ->configureRequired()
                 ->configureDefaultValueNow(),
 
-            (new Fields\DatetimeField(self::FIELD_DATE_UPDATE))
+            new Fields\DatetimeField(self::FIELD_DATE_UPDATE)
                 ->configureRequired()
                 ->configureDefaultValueNow(),
 
-            (new Fields\DatetimeField(self::REMOVE_PLANNED_AT)),
+            new Fields\DatetimeField(self::REMOVE_PLANNED_AT),
 
-            (new Fields\IntegerField(self::FIELD_CREATED_BY))
+            new Fields\IntegerField(self::FIELD_CREATED_BY)
                 ->configureRequired(),
 
-            (new Fields\IntegerField(self::FIELD_UPDATED_BY))
+            new Fields\IntegerField(self::FIELD_UPDATED_BY)
                 ->configureRequired(),
         ];
     }

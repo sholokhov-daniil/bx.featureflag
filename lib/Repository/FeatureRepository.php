@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag\Repository;
 
+use Bitrix\Main\Diag\Debug;
 use Throwable;
 
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
@@ -54,6 +55,19 @@ class FeatureRepository implements FeatureRepositoryInterface
     }
 
     /**
+     * Возвращает все доступные фичи, которые доступны на клиентской части
+     *
+     * @return iterable<FeatureInterface>
+     */
+    public function findForJs(): iterable
+    {
+        return array_values(array_filter(
+            $this->getIterator(),
+            static fn (FeatureInterface $feature): bool => $feature->isEnabled() && $feature->isAvailableInJs()
+        ));
+    }
+
+    /**
      * Возвращает фича-флаг по символьному коду
      *
      * При первом вызове выполняет загрузку всех флагов в runtime-кеш.
@@ -65,11 +79,7 @@ class FeatureRepository implements FeatureRepositoryInterface
      */
     public function findByCode(string $code): ?FeatureInterface
     {
-        if (!$this->loaded) {
-            $this->load();
-        }
-
-        return $this->cache[$code] ?? null;
+        return $this->getIterator()[$code] ?? null;
     }
 
     /**
@@ -92,7 +102,7 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return (new AddResult())->addErrors($validate->getErrors());
+                return new AddResult()->addErrors($validate->getErrors());
             }
 
             return FeatureTable::add([
@@ -113,8 +123,7 @@ class FeatureRepository implements FeatureRepositoryInterface
                     'field' => 'code',
                 ]));
         } catch (Throwable $exception) {
-            return (new AddResult())
-                ->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
+            return new AddResult()->addError(new Error('Ошибка при создании фича-флага: ' . $exception->getMessage()));
         }
     }
 
@@ -136,7 +145,7 @@ class FeatureRepository implements FeatureRepositoryInterface
         try {
             $validate = $flagInfo->validate();
             if (!$validate->isSuccess()) {
-                return (new UpdateResult())->addErrors($validate->getErrors());
+                return new UpdateResult()->addErrors($validate->getErrors());
             }
 
             return FeatureTable::update($flagInfo->code, [
@@ -145,7 +154,8 @@ class FeatureRepository implements FeatureRepositoryInterface
                 FeatureTable::FIELD_ENABLED => $flagInfo->enabled,
                 FeatureTable::FIELD_AVAILABLE_IN_JS => $flagInfo->availableInJs,
                 FeatureTable::FIELD_TAG_ID => $flagInfo->tagId,
-                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt, 'd.m.Y') : null,
+                FeatureTable::REMOVE_PLANNED_AT => $flagInfo->removePlannedAt ? new Date($flagInfo->removePlannedAt,
+                    'd.m.Y') : null,
                 FeatureTable::FIELD_STRATEGIES => $flagInfo->strategies,
 
             ]);
@@ -163,6 +173,20 @@ class FeatureRepository implements FeatureRepositoryInterface
     public function clearCache(): void
     {
         $this->load();
+    }
+
+    /**
+     * Возвращает все зарегистрированные фичи
+     *
+     * @return iterable<FeatureInterface>
+     */
+    private function getIterator(): iterable
+    {
+        if (!$this->loaded) {
+            $this->load();
+        }
+
+        return $this->cache;
     }
 
     /**
@@ -185,6 +209,7 @@ class FeatureRepository implements FeatureRepositoryInterface
 
             $iterator = FeatureTable::query()
                 ->setSelect(['*'])
+                ->where('CODE', 'alrt')
                 ->setCacheTtl(3600000)
                 ->exec();
 

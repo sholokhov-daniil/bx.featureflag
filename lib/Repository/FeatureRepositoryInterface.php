@@ -15,6 +15,13 @@ use Bitrix\Main\ORM\Data\UpdateResult;
 interface FeatureRepositoryInterface
 {
     /**
+     * Возвращает все доступные фичи, которые доступны на клиентской части
+     *
+     * @return iterable<FeatureInterface>
+     */
+    public function findForJs(): iterable;
+
+    /**
      * Возвращает флаг на основе символьного кода
      *
      * @param string $code Код флага

@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag;
 
+use Bitrix\Main\Diag\Debug;
 use Sholokhov\Featureflag\ORM\FeatureTable;
 
 use Bitrix\Main\Result;
@@ -27,14 +28,13 @@ use Bitrix\Main\ORM\Objectify\EntityObject;
 final readonly class FeatureFlag implements FeatureInterface
 {
     /**
-     * @param EntityObject   $entity ORM-сущность флага
-     * @param RuleInterface[] $rules Список правил проверки активности
+     * @param EntityObject    $entity ORM-сущность флага
+     * @param RuleInterface[] $rules  Список правил проверки активности
      */
     public function __construct(
         private EntityObject $entity,
         private array $rules
-    )
-    {
+    ) {
     }
 
     /**
