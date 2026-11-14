@@ -79,7 +79,6 @@ class sholokhov_featureflag extends CModule
     public function UnInstallDB(): void
     {
         $connection = FeatureTable::getEntity()->getConnection();
-
         $featureTable = FeatureTable::getTableName();
         if ($connection->isTableExists($featureTable)) {
             $connection->dropTable($featureTable);
