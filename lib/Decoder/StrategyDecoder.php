@@ -1,6 +1,6 @@
 <?php
 
-namespace Sholokhov\Featureflag\Normalizer;
+namespace Sholokhov\Featureflag\Decoder;
 
 /**
  * Декодирует JSON-конфигурацию стратегий

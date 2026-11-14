@@ -116,6 +116,7 @@ final class FeatureFlag extends Controller
      * Возвращает список фича-флагов.
      *
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function listAction(AdminFeatureFlagServiceInterface $service): ?array
@@ -128,8 +129,9 @@ final class FeatureFlag extends Controller
     /**
      * Возвращает детальные данные фича-флага.
      *
-     * @param string $code
+     * @param string                           $code
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function getAction(string $code, AdminFeatureFlagServiceInterface $service): ?array
@@ -142,8 +144,9 @@ final class FeatureFlag extends Controller
     /**
      * Создаёт фича-флаг.
      *
-     * @param FeatureFlagPayload|null $request
+     * @param FeatureFlagPayload|null          $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function createAction(?FeatureFlagPayload $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -160,8 +163,9 @@ final class FeatureFlag extends Controller
     /**
      * Обновляет фича-флаг.
      *
-     * @param FeatureFlagPayload|null $request
+     * @param FeatureFlagPayload|null          $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function updateAction(?FeatureFlagPayload $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -178,8 +182,9 @@ final class FeatureFlag extends Controller
     /**
      * Удаляет фича-флаг.
      *
-     * @param string $code
+     * @param string                           $code
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function deleteAction(string $code, AdminFeatureFlagServiceInterface $service): ?array
@@ -192,8 +197,9 @@ final class FeatureFlag extends Controller
     /**
      * Переключает активность фича-флага.
      *
-     * @param FeatureToggleRequest|null $request
+     * @param FeatureToggleRequest|null        $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function toggleAction(?FeatureToggleRequest $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -211,6 +217,7 @@ final class FeatureFlag extends Controller
      * Возвращает список тегов фича-флагов.
      *
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function tagListAction(AdminFeatureFlagServiceInterface $service): ?array
@@ -223,8 +230,9 @@ final class FeatureFlag extends Controller
     /**
      * Создаёт тег.
      *
-     * @param TagCreateRequest|null $request
+     * @param TagCreateRequest|null            $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function tagCreateAction(?TagCreateRequest $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -241,8 +249,9 @@ final class FeatureFlag extends Controller
     /**
      * Обновляет тег.
      *
-     * @param TagUpdateRequest|null $request
+     * @param TagUpdateRequest|null            $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function tagUpdateAction(?TagUpdateRequest $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -259,8 +268,9 @@ final class FeatureFlag extends Controller
     /**
      * Удаляет тег.
      *
-     * @param TagIdRequest|null $request
+     * @param TagIdRequest|null                $request
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function tagDeleteAction(?TagIdRequest $request, AdminFeatureFlagServiceInterface $service): ?array
@@ -278,6 +288,7 @@ final class FeatureFlag extends Controller
      * Возвращает список доступных стратегий доступа.
      *
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function strategyListAction(AdminFeatureFlagServiceInterface $service): ?array
@@ -290,8 +301,9 @@ final class FeatureFlag extends Controller
     /**
      * Сохраняет пользовательские настройки отображения списка фича-флагов.
      *
-     * @param string $displayMode
+     * @param string                           $displayMode
      * @param AdminFeatureFlagServiceInterface $service
+     *
      * @return array<string, mixed>|null
      */
     public function saveViewOptionsAction(string $displayMode, AdminFeatureFlagServiceInterface $service): ?array
@@ -305,6 +317,7 @@ final class FeatureFlag extends Controller
      * Преобразует сервисный Result в формат ответа контроллера.
      *
      * @param Result $result
+     *
      * @return array<string, mixed>|null
      */
     private function resolveServiceResult(Result $result): ?array
