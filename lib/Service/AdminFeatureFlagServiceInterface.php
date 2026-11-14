@@ -53,10 +53,10 @@ interface AdminFeatureFlagServiceInterface
      * Переключает активность фича-флага.
      *
      * @param string $code
-     * @param bool|int|float|string|null $enabled
+     * @param bool $enabled
      * @return Result{flag: array<string, mixed>}
      */
-    public function toggle(string $code, bool|int|float|string|null $enabled): Result;
+    public function toggle(string $code, bool $enabled): Result;
 
     /**
      * Возвращает список тегов фича-флагов.

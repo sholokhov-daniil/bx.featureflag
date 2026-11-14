@@ -2,6 +2,7 @@
 
 namespace Sholokhov\Featureflag;
 
+use Sholokhov\Featureflag\Infrastructure\Logger\LegacyLogger;
 use Throwable;
 use RuntimeException;
 
@@ -34,6 +35,7 @@ final class Feature
      * считается, что фича выключена.
      *
      * @param string $code Символьный код фичи
+     *
      * @return bool true, если фича активна
      */
     public static function isEnabled(string $code): bool
@@ -47,6 +49,7 @@ final class Feature
      * Является инверсией метода {@see self::isEnabled()}.
      *
      * @param string $code Символьный код фичи
+     *
      * @return bool true, если фича отключена
      */
     public static function isDisabled(string $code): bool
@@ -79,8 +82,8 @@ final class Feature
      *
      * @param string $code Символьный код фичи
      *
-     * @throws RuntimeException Если фича отключена
      * @return void
+     * @throws RuntimeException Если фича отключена
      */
     public static function require(string $code): void
     {
@@ -95,6 +98,7 @@ final class Feature
      * Возвращает true при первой найденной активной фиче.
      *
      * @param string[] $codes Список кодов фич
+     *
      * @return bool true, если хотя бы одна фича активна
      */
     public static function any(array $codes): bool
@@ -114,6 +118,7 @@ final class Feature
      * Возвращает false при первой найденной отключенной фиче.
      *
      * @param string[] $codes Список кодов фич
+     *
      * @return bool true, если все фичи активны
      */
     public static function all(array $codes): bool
@@ -131,6 +136,7 @@ final class Feature
      * Регистрация новой фичи
      *
      * @param FeatureFlagPayload $flag
+     *
      * @return AddResult
      * @throws ObjectNotFoundException
      * @throws NotFoundExceptionInterface
@@ -144,40 +150,57 @@ final class Feature
      * Включение фичи
      *
      * @param string $code
+     *
      * @return Result
      */
-    public static  function enabled(string $code): Result
+    public static function enabled(string $code): Result
     {
-        $features = self::getByCode($code);
+        try {
+            $features = self::getByCode($code);
 
-        if (!$features) {
-            return (new Result)->addError(new Error('Фича не найдена'));
+            if (!$features) {
+                return self::errorResult('Фича не найдена');
+            }
+
+            return ServiceProvider::getActionFactory()
+                ->createFeatureToggle()
+                ->execute($code, true);
+        } catch (Throwable $e) {
+            LegacyLogger::write($e);
+            return self::errorResult("Ошибка активации фичи");
         }
-
-        return $features->enabled();
     }
 
     /**
      * Отключение фичи
      *
      * @param string $code
+     *
      * @return Result
      */
     public static function disabled(string $code): Result
     {
-        $features = self::getByCode($code);
+        try {
+            $features = self::getByCode($code);
 
-        if (!$features) {
-            return (new Result)->addError(new Error('Фича не найдена'));
+            if (!$features) {
+                return self::errorResult('Фича не найдена');
+            }
+
+            return ServiceProvider::getActionFactory()
+                ->createFeatureToggle()
+                ->execute($code, false);
+        } catch (Throwable $e) {
+            LegacyLogger::write("Failure disabled feature '$code': {$e->getMessage()}");
+            return self::errorResult("Ошибка активации фичи");
         }
-
-        return $features->disabled();
     }
 
     /**
      * Удаление фичи
      *
      * @param string $code
+     *
      * @return Result
      */
     public static function unRegister(string $code): Result
@@ -198,6 +221,7 @@ final class Feature
      * возвращает null.
      *
      * @param string $code Символьный код фичи
+     *
      * @return FeatureInterface|null Объект флага или null, если не найден или произошла ошибка
      */
     public static function getByCode(string $code): ?FeatureInterface
@@ -210,5 +234,18 @@ final class Feature
         }
 
         return $flag;
+    }
+
+    /**
+     * Создает результат с ошибкой
+     *
+     * @param string     $message
+     * @param string|int $code
+     *
+     * @return Result
+     */
+    private static function errorResult(string $message, string|int $code = 0): Result
+    {
+        return new Result()->addError(new Error($message, $code));
     }
 }

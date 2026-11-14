@@ -1,8 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Sholokhov\Featureflag\Http\Controller;
 
+use Override;
+use Throwable;
+
 use Sholokhov\Featureflag\DTO\FeatureFlagPayload;
+use Sholokhov\Featureflag\Feature;
+use Sholokhov\Featureflag\FeatureInterface;
 use Sholokhov\Featureflag\Http\AutoWire\ValidationParameter;
 use Sholokhov\Featureflag\Http\Middleware\WriteAccessMiddleware;
 use Sholokhov\Featureflag\Http\Middleware\ReadAccessMiddleware;
@@ -10,19 +17,26 @@ use Sholokhov\Featureflag\Http\Request\FeatureToggleRequest;
 use Sholokhov\Featureflag\Http\Request\TagCreateRequest;
 use Sholokhov\Featureflag\Http\Request\TagIdRequest;
 use Sholokhov\Featureflag\Http\Request\TagUpdateRequest;
+use Sholokhov\Featureflag\Infrastructure\Logger\LegacyLogger;
+use Sholokhov\FeatureFlag\Infrastructure\Result\FailureResultTrait;
+use Sholokhov\Featureflag\Presentation\Http\Response\Feature\ToggleResponse;
 use Sholokhov\Featureflag\ServiceProvider;
 use Sholokhov\Featureflag\Service\AdminFeatureFlagServiceInterface;
 
+use Bitrix\Main\Error;
 use Bitrix\Main\Result;
 use Bitrix\Main\Engine\Controller;
 use Bitrix\Main\ObjectNotFoundException;
 use Bitrix\Main\Engine\AutoWire\Parameter;
+use Bitrix\Main\Engine\AutoWire\ExactParameter;
+use Bitrix\Main\Engine\AutoWire\BinderArgumentException;
 
 use Psr\Container\NotFoundExceptionInterface;
 
 /**
  * HTTP-контроллер админки фича-флагов.
  *
+ * @todo Сделать так, чтобы ошибки не возвращались со статусом 200
  * Контроллер остаётся thin-layer:
  * - получает request DTO через AutoWire;
  * - делегирует операции сервису;
@@ -30,11 +44,14 @@ use Psr\Container\NotFoundExceptionInterface;
  */
 final class FeatureFlag extends Controller
 {
+    use FailureResultTrait;
+
     /**
      * @return array<string, array<string, mixed>>
      * @throws ObjectNotFoundException
      * @throws NotFoundExceptionInterface
      */
+    #[Override]
     public function configureActions(): array
     {
         $permission = ServiceProvider::getModulePermission();
@@ -68,10 +85,26 @@ final class FeatureFlag extends Controller
     }
 
     /**
+     * @todo Добавить обработку отсутствия фичи на уровне контроллера
+     * @return ExactParameter
+     * @throws BinderArgumentException
+     */
+    #[Override]
+    public function getPrimaryAutoWiredParameter(): ExactParameter
+    {
+        return new ExactParameter(
+            FeatureInterface::class,
+            'feature',
+            fn(string $className, string $code) => Feature::getByCode($code)
+        );
+    }
+
+    /**
      * Регистрирует зависимости для автоподстановки в action-методы.
      *
      * @return array<int, Parameter>
      */
+    #[Override]
     public function getAutoWiredParameters(): array
     {
         $request = $this->getRequest();
@@ -115,6 +148,7 @@ final class FeatureFlag extends Controller
     /**
      * Возвращает список фича-флагов.
      *
+     * @todo Переработать
      * @param AdminFeatureFlagServiceInterface $service
      *
      * @return array<string, mixed>|null
@@ -129,6 +163,7 @@ final class FeatureFlag extends Controller
     /**
      * Возвращает детальные данные фича-флага.
      *
+     * @todo Переработать
      * @param string                           $code
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -144,6 +179,7 @@ final class FeatureFlag extends Controller
     /**
      * Создаёт фича-флаг.
      *
+     * @todo Переработать
      * @param FeatureFlagPayload|null          $request
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -163,6 +199,7 @@ final class FeatureFlag extends Controller
     /**
      * Обновляет фича-флаг.
      *
+     * @todo Переработать
      * @param FeatureFlagPayload|null          $request
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -182,6 +219,7 @@ final class FeatureFlag extends Controller
     /**
      * Удаляет фича-флаг.
      *
+     * @todo Переработать
      * @param string                           $code
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -197,25 +235,38 @@ final class FeatureFlag extends Controller
     /**
      * Переключает активность фича-флага.
      *
-     * @param FeatureToggleRequest|null        $request
+     * @param FeatureInterface                 $feature
+     * @param bool                             $enabled
      * @param AdminFeatureFlagServiceInterface $service
      *
-     * @return array<string, mixed>|null
+     * @return array|null
      */
-    public function toggleAction(?FeatureToggleRequest $request, AdminFeatureFlagServiceInterface $service): ?array
+    public function toggleAction(
+        FeatureInterface $feature,
+        bool $enabled,
+        AdminFeatureFlagServiceInterface $service
+    ): ?ToggleResponse
     {
-        if ($request === null) {
-            return null;
+        try {
+            $result = $service->toggle($feature->getCode(), $enabled);
+
+            if ($result->isSuccess()) {
+                return new ToggleResponse(enabled: $enabled);
+            }
+
+            $this->addErrors($result->getErrors());
+        } catch (Throwable $e) {
+            LegacyLogger::write($e);
+            $this->addError(new Error('Ошибка обновления активности фичи'));
         }
 
-        return $this->resolveServiceResult(
-            $service->toggle($request->code, (bool)$request->enabled),
-        );
+        return null;
     }
 
     /**
      * Возвращает список тегов фича-флагов.
      *
+     * @todo Переработать
      * @param AdminFeatureFlagServiceInterface $service
      *
      * @return array<string, mixed>|null
@@ -230,6 +281,7 @@ final class FeatureFlag extends Controller
     /**
      * Создаёт тег.
      *
+     * @todo Переработать
      * @param TagCreateRequest|null            $request
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -249,6 +301,7 @@ final class FeatureFlag extends Controller
     /**
      * Обновляет тег.
      *
+     * @todo Переработать
      * @param TagUpdateRequest|null            $request
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -268,6 +321,7 @@ final class FeatureFlag extends Controller
     /**
      * Удаляет тег.
      *
+     * @todo Переработать
      * @param TagIdRequest|null                $request
      * @param AdminFeatureFlagServiceInterface $service
      *
@@ -287,6 +341,7 @@ final class FeatureFlag extends Controller
     /**
      * Возвращает список доступных стратегий доступа.
      *
+     * @todo Переработать
      * @param AdminFeatureFlagServiceInterface $service
      *
      * @return array<string, mixed>|null
@@ -301,6 +356,7 @@ final class FeatureFlag extends Controller
     /**
      * Сохраняет пользовательские настройки отображения списка фича-флагов.
      *
+     * @todo Переработать
      * @param string                           $displayMode
      * @param AdminFeatureFlagServiceInterface $service
      *

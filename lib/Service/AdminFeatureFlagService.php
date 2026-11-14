@@ -55,8 +55,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Создаёт сервис админских операций фича-флагов.
      *
-     * @param AdminFeatureFlagPresenter|null $presenter Presenter API-ответов; null создаёт presenter по умолчанию.
+     * @param AdminFeatureFlagPresenter|null   $presenter   Presenter API-ответов; null создаёт presenter по умолчанию.
      * @param AdminFeatureFlagErrorMapper|null $errorMapper Mapper ошибок; null создаёт mapper по умолчанию.
+     *
      * @return void
      */
     public function __construct(
@@ -95,6 +96,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Возвращает один фича-флаг по символьному коду.
      *
      * @param string $code Символьный код фича-флага.
+     *
      * @return Result{flag: array<string, mixed>} Результат с данными фича-флага.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -111,7 +113,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
 
         $row = $this->findFlagRow($code);
         if ($row === null) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_NOT_FOUND'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_NOT_FOUND'));
             return $result;
         }
 
@@ -122,6 +125,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Создаёт новый фича-флаг.
      *
      * @param FeatureFlagPayload $payload DTO создаваемого фича-флага.
+     *
      * @return Result{flag: array<string, mixed>} Результат создания с подготовленным фича-флагом.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws NotFoundExceptionInterface При ошибке получения зависимости из контейнера.
@@ -143,6 +147,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Обновляет существующий фича-флаг.
      *
      * @param FeatureFlagPayload $payload DTO обновляемого фича-флага.
+     *
      * @return Result{flag: array<string, mixed>} Результат обновления с подготовленным фича-флагом.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws NotFoundExceptionInterface При ошибке получения зависимости из контейнера.
@@ -164,6 +169,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Удаляет фича-флаг по символьному коду.
      *
      * @param string $code Символьный код фича-флага.
+     *
      * @return Result{code: string} Результат удаления.
      */
     public function delete(string $code): Result
@@ -189,31 +195,20 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Переключает активность фича-флага.
      *
-     * @param string $code Символьный код фича-флага.
-     * @param bool|int|float|string|null $enabled Целевое состояние активности.
+     * @param string $code    Символьный код фичи
+     * @param bool   $enabled Целевое состояние активности.
+     *
      * @return Result{flag: array<string, mixed>} Результат переключения с подготовленным фича-флагом.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
      * @throws SystemException При системной ошибке ORM.
      */
-    public function toggle(string $code, bool|int|float|string|null $enabled): Result
+    public function toggle(string $code, bool $enabled): Result
     {
-        $result = new Result();
-        $code = $this->normalizeCode($code);
-        $enabledValue = $this->parseBoolean($enabled);
+        $result = $enabled ? Feature::enabled($code) : Feature::disabled($code);
 
-        if (!$this->validateCode($result, $code)) {
-            return $result;
-        }
-
-        if ($enabledValue === null) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ENABLED, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_ENABLED'));
-            return $result;
-        }
-
-        $toggleResult = $enabledValue ? Feature::enabled($code) : Feature::disabled($code);
-        if (!$toggleResult->isSuccess()) {
-            $this->errorMapper->appendErrors($result, $toggleResult);
+        if (!$result->isSuccess()) {
+            $this->errorMapper->appendErrors($result, $result);
             return $result;
         }
 
@@ -253,6 +248,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Создаёт тег фича-флагов.
      *
      * @param string $name Название тега.
+     *
      * @return Result{tag: array<string, mixed>} Результат создания тега.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -268,7 +264,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         }
 
         if ($this->isTagNameBusy($name)) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
             return $result;
         }
 
@@ -287,8 +284,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Обновляет тег фича-флагов.
      *
-     * @param string $id Идентификатор тега.
+     * @param string $id   Идентификатор тега.
      * @param string $name Новое название тега.
+     *
      * @return Result{tag: array<string, mixed>} Результат обновления тега.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -309,7 +307,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
         }
 
         if ($this->isTagNameBusy($name, $tagId)) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_DUPLICATE'));
             return $result;
         }
 
@@ -329,6 +328,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Удаляет тег фича-флагов.
      *
      * @param string $id Идентификатор тега.
+     *
      * @return Result{id: int} Результат удаления тега.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -428,6 +428,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Сохраняет пользовательский способ отображения списка фича-флагов.
      *
      * @param string $displayMode Код способа отображения.
+     *
      * @return Result{viewOptions: array{displayMode: string}}
      */
     public function saveViewOptions(string $displayMode): Result
@@ -456,6 +457,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Создаёт успешный Result с данными.
      *
      * @param array<string, mixed> $data Данные результата.
+     *
      * @return Result Результат с установленными данными.
      */
     private function success(array $data): Result
@@ -487,6 +489,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Нормализует код способа отображения списка.
      *
      * @param string $displayMode Исходный код способа отображения.
+     *
      * @return string|null Нормализованный код или null.
      */
     private function normalizeDisplayMode(string $displayMode): ?string
@@ -502,7 +505,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Нормализует символьный код фича-флага.
      *
      * @param string $code Исходный код.
+     *
      * @return string Код без внешних пробелов.
+     * @deprecated
      */
     private function normalizeCode(string $code): string
     {
@@ -513,23 +518,27 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Проверяет символьный код фича-флага и добавляет ошибку в Result при невалидном значении.
      *
      * @param Result $result Результат операции.
-     * @param string $code Символьный код фича-флага.
+     * @param string $code   Символьный код фича-флага.
+     *
      * @return bool true, если код валиден.
      */
     private function validateCode(Result $result, string $code): bool
     {
         if ($code === '') {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_CODE'));
             return false;
         }
 
         if (mb_strlen($code) > self::MAX_CODE_LENGTH) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_CODE_TOO_LONG'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_CODE_TOO_LONG'));
             return false;
         }
 
         if (!preg_match(self::CODE_PATTERN, $code)) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_CODE'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::CODE,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_INVALID_CODE'));
             return false;
         }
 
@@ -540,6 +549,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Ищет ORM-строку фича-флага по символьному коду.
      *
      * @param string $code Символьный код фича-флага.
+     *
      * @return array<string, mixed>|null ORM-строка или null, если флаг не найден.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -563,7 +573,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Загружает свежую ORM-строку фича-флага и устанавливает её в Result.
      *
      * @param Result $result Результат операции с фича-флагом.
-     * @param string $code Символьный код фича-флага.
+     * @param string $code   Символьный код фича-флага.
+     *
      * @return Result Результат с данными флага, если флаг найден.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -571,7 +582,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      */
     private function withFreshFlagData(Result $result, string $code): Result
     {
-        $row = $this->findFlagRow($this->normalizeCode($code));
+        $row = $this->findFlagRow($code);
         if ($row === null) {
             return $result;
         }
@@ -582,8 +593,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Устанавливает ORM-строку фича-флага в Result в формате API.
      *
-     * @param Result $result Результат операции с фича-флагом.
-     * @param array<string, mixed> $row ORM-строка фича-флага.
+     * @param Result               $result Результат операции с фича-флагом.
+     * @param array<string, mixed> $row    ORM-строка фича-флага.
+     *
      * @return Result Результат с подготовленным флагом.
      * @throws ArgumentException При ошибке ORM-запроса связанных данных.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств связанных данных.
@@ -600,6 +612,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Преобразует входное значение активности в bool или null.
      *
      * @param bool|int|float|string|null $value Значение активности из HTTP/API.
+     *
      * @return bool|null Нормализованное значение или null при невалидном входе.
      */
     private function parseBoolean(bool|int|float|string|null $value): ?bool
@@ -639,6 +652,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Нормализует название тега.
      *
      * @param string $name Исходное название тега.
+     *
      * @return string Название без внешних пробелов.
      */
     private function normalizeTagName(string $name): string
@@ -650,18 +664,21 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Проверяет название тега и добавляет ошибку в Result при невалидном значении.
      *
      * @param Result $result Результат операции.
-     * @param string $name Название тега.
+     * @param string $name   Название тега.
+     *
      * @return bool true, если название валидно.
      */
     private function validateTagName(Result $result, string $name): bool
     {
         if ($name === '') {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_TAG_NAME'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_EMPTY_TAG_NAME'));
             return false;
         }
 
         if (mb_strlen($name) > self::MAX_TAG_NAME_LENGTH) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NAME_TOO_LONG'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::NAME,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NAME_TOO_LONG'));
             return false;
         }
 
@@ -672,14 +689,16 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Преобразует идентификатор тега из строки запроса.
      *
      * @param Result $result Результат операции.
-     * @param string $id Идентификатор тега из API.
+     * @param string $id     Идентификатор тега из API.
+     *
      * @return int|null Положительный идентификатор или null при ошибке.
      */
     private function parseTagId(Result $result, string $id): ?int
     {
         $tagId = (int)trim($id);
         if ($tagId <= 0) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_INVALID_ID'));
             return null;
         }
 
@@ -689,8 +708,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Проверяет, занято ли название тега.
      *
-     * @param string $name Название тега.
+     * @param string   $name        Название тега.
      * @param int|null $exceptTagId Идентификатор тега, который нужно исключить из проверки.
+     *
      * @return bool true, если название уже занято другим тегом.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -709,8 +729,9 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
     /**
      * Загружает ORM-строку тега по идентификатору.
      *
-     * @param int $tagId Идентификатор тега.
+     * @param int    $tagId  Идентификатор тега.
      * @param Result $result Результат операции для записи ошибки, если тег не найден.
+     *
      * @return array<string, mixed>|null ORM-строка тега или null.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -727,7 +748,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
             ->fetch();
 
         if (!is_array($row)) {
-            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID, $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
+            $this->errorMapper->addFieldError($result, AdminFeatureFlagField::ID,
+                $this->message('SHOLOKHOV_FEATUREFLAG_ERR_TAG_NOT_FOUND'));
             return null;
         }
 
@@ -738,6 +760,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Ищет ORM-строку тега по названию.
      *
      * @param string $name Название тега.
+     *
      * @return array<string, mixed>|null ORM-строка тега или null.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -760,7 +783,8 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Устанавливает свежие данные тега в Result.
      *
      * @param Result $result Результат операции с тегом.
-     * @param int $tagId Идентификатор тега.
+     * @param int    $tagId  Идентификатор тега.
+     *
      * @return Result Результат с подготовленным тегом, если тег найден.
      * @throws ArgumentException При ошибке ORM-запроса.
      * @throws ObjectPropertyException При ошибке чтения ORM-свойств.
@@ -782,6 +806,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Снимает удаляемый тег со всех фича-флагов.
      *
      * @param int $tagId Идентификатор удаляемого тега.
+     *
      * @return void
      * @throws ArgumentException При ошибке ORM-entity.
      * @throws SystemException При системной ошибке ORM.
@@ -800,6 +825,7 @@ final class AdminFeatureFlagService implements AdminFeatureFlagServiceInterface
      * Возвращает локализованное сообщение по коду.
      *
      * @param string $code Код сообщения Loc.
+     *
      * @return string Текст сообщения или код, если перевод не найден.
      */
     private function message(string $code): string

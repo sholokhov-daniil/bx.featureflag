@@ -313,12 +313,13 @@ async function toggleFlag(flag: FeatureFlagItem, value: boolean): Promise<void> 
   processingCodes.value = [...processingCodes.value, flag.code]
 
   try {
-    const response = await runAdminAction<{ flag: FeatureFlagItem }>(actions.toggle, {
+    const response = await runAdminAction<{ enabled: boolean }>(actions.toggle, {
       code: flag.code,
-      enabled: value,
+      enabled: value ? 1 : 0,
     })
 
-    replaceFlag(response.flag)
+    flag.enabled = response.enabled;
+
     showNotice('success', Loc('SHOLOKHOV_FEATUREFLAG_MSG_STATUS_UPDATED'))
   } catch (error) {
     showNotice('error', extractErrorText(error, genericErrorMessage()))

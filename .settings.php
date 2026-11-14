@@ -1,7 +1,12 @@
 <?php
 
+use Sholokhov\Featureflag\Application\UseCase;
+use Sholokhov\Featureflag\Domain\Repository\FeatureFlagRepositoryInterface;
 use Sholokhov\Featureflag\Factory\FeatureFactory;
 use Sholokhov\Featureflag\Factory\FeatureFactoryInterface;
+use Sholokhov\Featureflag\Infrastructure\DI\Factory\ActionFactory;
+use Sholokhov\Featureflag\Infrastructure\Persistence\FeatureFlagMapper;
+use Sholokhov\FeatureFlag\Infrastructure\Repository\FeatureFlagRepository;
 use Sholokhov\Featureflag\Permission\ModulePermission;
 use Sholokhov\Featureflag\Repository\RuleRegistry;
 use Sholokhov\Featureflag\Repository\RuleRegistryInterface;
@@ -60,11 +65,23 @@ return [
                     ->register(new UserGroupStrategy())
                     ->register(new SiteIdStrategy()),
             ],
+            /** @deprecated  */
             FeatureRepositoryInterface::class => [
                 'constructor' => static fn() => new FeatureRepository,
             ],
             AdminFeatureFlagServiceInterface::class => [
                 'className' => AdminFeatureFlagService::class,
+            ],
+            FeatureFlagRepositoryInterface::class => [
+                'constructor' => static fn() => new FeatureFlagRepository(new FeatureFlagMapper)
+            ],
+            ActionFactory::FEATURE_TOGGLE_SERVICE_ID => [
+                'constructor' => static fn() => new UseCase\SetFeatureFlagEnabled(
+                    repository: \Sholokhov\Featureflag\ServiceProvider::getFeatureRepository()
+                ),
+            ],
+            'sholokhov.action.factory' => [
+                'className' => ActionFactory::class,
             ],
             'sholokhov.featureflag.permission.module' => [
                 'className' => ModulePermission::class,

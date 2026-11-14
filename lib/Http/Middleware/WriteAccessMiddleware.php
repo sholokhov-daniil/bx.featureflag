@@ -3,7 +3,6 @@
 namespace Sholokhov\Featureflag\Http\Middleware;
 
 use Bitrix\Main\Context;
-use Bitrix\Main\Diag\Debug;
 use Bitrix\Main\Engine\ActionFilter\Base;
 use Bitrix\Main\Error;
 use Bitrix\Main\Event;

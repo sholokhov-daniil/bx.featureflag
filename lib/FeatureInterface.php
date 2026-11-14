@@ -2,7 +2,7 @@
 
 namespace Sholokhov\Featureflag;
 
-use Bitrix\Main\Result;
+use Bitrix\Main\Type\DateTime;
 
 /**
  * Доступные методы флага
@@ -40,21 +40,35 @@ interface FeatureInterface
     /**
      * Отключение фичи
      *
-     * @return Result
+     * @return void
      */
-    public function disabled(): Result;
+    public function disable(): void;
 
     /**
-     * Включение вичи
+     * Включение фичи
      *
-     * @return Result
+     * @return void
      */
-    public function enabled(): Result;
+    public function enable(): void;
 
     /**
-     * Удаление флага
+     * Возвращает ID тега к которому принадлежит  фича-флаг
      *
-     * @return Result
+     * @return int|null
      */
-    public function delete(): Result;
+    public function getTagId(): ?int;
+
+    /**
+     * Плановая дата удаления фича-флага
+     *
+     * @return DateTime|null
+     */
+    public function getRemovePlanAt(): ?DateTime;
+
+    /**
+     * Все стратегии активации фичи-флага
+     *
+     * @return array
+     */
+    public function getStrategies(): array;
 }
